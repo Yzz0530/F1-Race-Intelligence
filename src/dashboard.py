@@ -254,9 +254,9 @@ with st.sidebar:
         f"{_gh_base}/ed_sheeran_drive.mp3",
     ]
     _js_songs = ",".join(""" + s + """ for s in _songs)
-    st.markdown(
+    st.components.v1.html(
         f"""<div style="position:absolute;opacity:0;width:0;height:0;overflow:hidden">
-<audio id="f1audio" autoplay></audio>
+<audio id="f1audio"></audio>
 <script>
 var playlist = [{_js_songs}];
 var idx = 0;
@@ -266,7 +266,7 @@ function playNext() {{ idx = (idx + 1) % playlist.length; a.src = playlist[idx];
 if (a) {{ a.addEventListener("ended", playNext); a.src = playlist[0]; a.load(); a.play().catch(function(){{}}); }}
 document.addEventListener("click", function handler() {{ var a = document.getElementById("f1audio"); if (a && a.paused) a.play().catch(function(){{}}); document.removeEventListener("click", handler); }});
 </script></div>""",
-        unsafe_allow_html=True
+        height=1
     )
     st.markdown("<hr style='margin-top:2rem;opacity:0.3;'>", unsafe_allow_html=True)
     st.markdown(
