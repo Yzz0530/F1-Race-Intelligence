@@ -226,31 +226,31 @@ def _compute_constructor_standings(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _render_standings_table(standings: pd.DataFrame, is_constructor: bool = False):
-    """Render a styled standings table — no scroll, all rows visible."""
+    """Render a styled standings table — dataframe look, no scroll."""
     if standings.empty:
         st.info("No standings data available.")
         return
 
-    rows_html = ""
-    for i, (_, row) in enumerate(standings.iterrows()):
-        pos = i + 1
-        team = row.get("Team", "")
-        c = _team_color(team)
-        if is_constructor:
-            name = row["Team"]
-            pts = int(row["Total"])
-            rows_html += f'<tr style="background-color:{c}22"><td style="text-align:center;font-weight:600">{pos}</td><td>{name}</td><td style="text-align:center;font-weight:700">{pts}</td></tr>\n'
-        else:
-            name = row["Driver"]
-            team_name = row["Team"]
-            pts = int(row["Total"])
-            rows_html += f'<tr style="background-color:{c}22"><td style="text-align:center;font-weight:600">{pos}</td><td>{name}</td><td>{team_name}</td><td style="text-align:center;font-weight:700">{pts}</td></tr>\n'
+    table = pd.DataFrame()
+    table["Pos"] = range(1, len(standings) + 1)
 
-    hdr = "<th>Pos</th><th>Driver</th><th>Team</th><th>Points</th>" if not is_constructor else "<th>Pos</th><th>Team</th><th>Points</th>"
-    html = f"""<table style="width:100%;border-collapse:collapse;font-size:0.92rem;color:#e0e0e0">
-<thead><tr style="border-bottom:2px solid #e10600">{hdr}</tr></thead>
-<tbody>{rows_html}</tbody></table>"""
-    st.markdown(html, unsafe_allow_html=True)
+    if is_constructor:
+        table["Team"] = standings["Team"]
+        table["Points"] = standings["Total"].astype(int)
+    else:
+        table["Driver"] = standings["Driver"]
+        table["Team"] = standings["Team"]
+        table["Points"] = standings["Total"].astype(int)
+
+    def _color_row(row):
+        c = _team_color(row.get("Team", ""))
+        return [f"background-color: {c}22"] * len(row)
+
+    styled = table.style.apply(_color_row, axis=1)
+
+    # Disable scroll via CSS override on the dataframe container
+    st.markdown("<style>div[data-testid='stDataFrame'] div[role='gridcell'], div[data-testid='stDataFrame'] div[tabindex] { overflow: visible !important; max-height: none !important; } div[data-testid='stDataFrame'] { overflow: visible !important; }</style>", unsafe_allow_html=True)
+    st.dataframe(styled, use_container_width=True, hide_index=True, height=40 * (len(table) + 1))
 
 
 def render_standings_tab():
