@@ -250,7 +250,7 @@ def _render_standings_table(standings: pd.DataFrame, is_constructor: bool = Fals
         return [f"background-color: {c}22"] * len(row)
 
     styled = table.style.apply(_color_row, axis=1)
-    st.dataframe(styled, use_container_width=True, hide_index=True, height=min(38 * len(table) + 40, 500))
+    st.dataframe(styled, use_container_width=True, hide_index=True)
 
 
 def render_standings_tab():
