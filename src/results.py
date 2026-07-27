@@ -36,9 +36,12 @@ SESSION_TYPES = ["FP1", "FP2", "FP3", "Q", "Sprint Qualifying", "Sprint", "R"]
 # Display names for the session radio buttons
 SESSION_DISPLAY = {
     "FP1": "FP1", "FP2": "FP2", "FP3": "FP3",
-    "Q": "Qualifying", "Sprint Qualifying": "Sprint Quali",
+    "Q": "Qualifying", "Sprint Qualifying": "Sprint Qualifying",
     "Sprint": "Sprint Race", "R": "Race",
 }
+
+# Sessions that need laps loaded to get best lap times (results have no position data)
+LAPS_NEEDED = {"FP1", "FP2", "FP3", "Sprint Qualifying"}
 
 # ── F1 points system ──────────────────────────────────────────────────────
 RACE_POINTS = {1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2, 10: 1}
@@ -78,11 +81,31 @@ def _fmt_gap(time_val, pole_time) -> str:
 
 
 def _load_session_results(year: int, race: str, session_type: str) -> pd.DataFrame | None:
-    """Load session results from fastf1. Returns None if session not available."""
+    """Load session results from fastf1. For FP/Sprint Quali, loads laps and
+    computes best lap times per driver (these sessions have no position data)."""
     try:
         session = fastf1.get_session(year, race, session_type)
-        session.load(laps=False, telemetry=False)
-        return session.results.copy()
+        if session_type in LAPS_NEEDED:
+            session.load()  # full load including laps
+            laps = session.laps
+            results = session.results
+            if laps is None or laps.empty:
+                return None
+            # Compute best lap per driver
+            best = laps.groupby("DriverNumber")["LapTime"].min().reset_index()
+            best.rename(columns={"LapTime": "BestLapTime"}, inplace=True)
+            lap_counts = laps.groupby("DriverNumber")["LapNumber"].count().reset_index()
+            lap_counts.rename(columns={"LapNumber": "Laps"}, inplace=True)
+            merged = best.merge(lap_counts, on="DriverNumber")
+            merged = merged.merge(
+                results[["DriverNumber", "FullName", "TeamName"]].drop_duplicates("DriverNumber"),
+                on="DriverNumber", how="left"
+            )
+            merged = merged.sort_values("BestLapTime").reset_index(drop=True)
+            return merged
+        else:
+            session.load(laps=False, telemetry=False)
+            return session.results.copy()
     except Exception:
         return None
 
@@ -91,11 +114,9 @@ def _build_results_table(results: pd.DataFrame, session_type: str) -> pd.DataFra
     """Build a clean results table from fastf1 results."""
     table = pd.DataFrame()
 
-    if session_type in ("FP1", "FP2", "FP3"):
-        # Practice sessions: sort by best lap time, no position
+    if session_type in LAPS_NEEDED:
+        # Practice/Sprint Quali sessions: sorted by best lap time, no position
         df = results.copy()
-        if "BestLapTime" in df.columns:
-            df = df.sort_values("BestLapTime").reset_index(drop=True)
         table["Rank"] = range(1, len(df) + 1)
         table["Driver"] = df["FullName"]
         table["No"] = df["DriverNumber"]
@@ -142,8 +163,8 @@ def _build_results_table(results: pd.DataFrame, session_type: str) -> pd.DataFra
 
 def _render_position_chart(results: pd.DataFrame, session_type: str, race: str, year: int):
     """Render a horizontal bar chart of finishing positions (race/sprint/quali only)."""
-    # Skip chart for practice sessions — no meaningful positions
-    if session_type in ("FP1", "FP2", "FP3"):
+    # Skip chart for practice/sprint quali sessions — no meaningful positions
+    if session_type in LAPS_NEEDED:
         return
 
     df = results.dropna(subset=["Position"]).copy()
