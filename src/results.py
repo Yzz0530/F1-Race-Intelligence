@@ -241,6 +241,18 @@ def render_results_tab():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # Reset if track/year changed since last load
+    loaded_key = st.session_state.get("_loaded_track_key")
+    current_key = f"{r_year}_{r_track}"
+    if loaded_key != current_key:
+        st.session_state["_show_results"] = False
+
+    if st.button("🏁  Load Results", key="load_results_btn"):
+        st.session_state["_show_results"] = True
+        st.session_state["_loaded_track_key"] = current_key
+    if not st.session_state.get("_show_results"):
+        return
+
     # ── Load available sessions ───────────────────────────────────────────
     with st.spinner(f"Loading sessions for {r_track}..."):
         available = _get_available_sessions(r_year, r_track)
