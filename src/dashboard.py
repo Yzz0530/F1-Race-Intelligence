@@ -300,9 +300,9 @@ st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 # TABS
 # ══════════════════════════════════════════════════════════════════
 
-TAB_NAMES = ["STRATEGY", "DRIVER BATTLE", "STINT TELEMETRY", "TRACK ANALYSIS",
-             "SC SIMULATOR", "UNDERCUT", "CAR TELEMETRY", "AI ASSISTANT",
-             "RACE TIMELINE", "RESULTS", "STANDINGS"]
+TAB_NAMES = ["RESULTS", "STANDINGS", "RACE TIMELINE", "DRIVER BATTLE",
+             "TRACK ANALYSIS", "STINT TELEMETRY", "CAR TELEMETRY", "STRATEGY",
+             "SC SIMULATOR", "UNDERCUT", "AI ASSISTANT"]
 active_tab = st.radio("tab_nav", TAB_NAMES, horizontal=True, label_visibility="collapsed")
 
 
