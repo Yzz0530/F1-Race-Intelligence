@@ -249,7 +249,7 @@ with st.sidebar:
     _sources = ",".join('"' + src + '"' for _, src in PLAYLIST)
     _playlist_html = (
         '<div style="position:absolute;opacity:0;width:0;height:0;overflow:hidden">'
-        '<audio id="f1audio" autoplay loop>'
+        '<audio id="f1audio" autoplay>'
         '<source src="' + PLAYLIST[0][1] + '" type="audio/mpeg">'
         '</audio>'
         '<script>'
