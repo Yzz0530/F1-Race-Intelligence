@@ -226,31 +226,31 @@ def _compute_constructor_standings(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _render_standings_table(standings: pd.DataFrame, is_constructor: bool = False):
-    """Render a styled standings table."""
+    """Render a styled standings table — no scroll, all rows visible."""
     if standings.empty:
         st.info("No standings data available.")
         return
 
-    # Build display table
-    table = pd.DataFrame()
-    table["Pos"] = range(1, len(standings) + 1)
-
-    if is_constructor:
-        table["Team"] = standings["Team"]
-        table["Points"] = standings["Total"].astype(int)
-    else:
-        table["Driver"] = standings["Driver"]
-        table["Team"] = standings["Team"]
-        table["Points"] = standings["Total"].astype(int)
-
-    # Style with team colors
-    def _color_row(row):
+    rows_html = ""
+    for i, (_, row) in enumerate(standings.iterrows()):
+        pos = i + 1
         team = row.get("Team", "")
         c = _team_color(team)
-        return [f"background-color: {c}22"] * len(row)
+        if is_constructor:
+            name = row["Team"]
+            pts = int(row["Total"])
+            rows_html += f'<tr style="background-color:{c}22"><td style="text-align:center;font-weight:600">{pos}</td><td>{name}</td><td style="text-align:center;font-weight:700">{pts}</td></tr>\n'
+        else:
+            name = row["Driver"]
+            team_name = row["Team"]
+            pts = int(row["Total"])
+            rows_html += f'<tr style="background-color:{c}22"><td style="text-align:center;font-weight:600">{pos}</td><td>{name}</td><td>{team_name}</td><td style="text-align:center;font-weight:700">{pts}</td></tr>\n'
 
-    styled = table.style.apply(_color_row, axis=1)
-    st.dataframe(styled, use_container_width=True, hide_index=True)
+    hdr = "<th>Pos</th><th>Driver</th><th>Team</th><th>Points</th>" if not is_constructor else "<th>Pos</th><th>Team</th><th>Points</th>"
+    html = f"""<table style="width:100%;border-collapse:collapse;font-size:0.92rem;color:#e0e0e0">
+<thead><tr style="border-bottom:2px solid #e10600">{hdr}</tr></thead>
+<tbody>{rows_html}</tbody></table>"""
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def render_standings_tab():
