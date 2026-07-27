@@ -179,7 +179,6 @@ def _compute_constructor_standings(df: pd.DataFrame) -> pd.DataFrame:
     return progression
 
 
-def _render_points_chart(standings: pd.DataFrame, title: str, is_constructor: bool = False):
     """Render cumulative points progression chart."""
     fig, ax = plt.subplots(figsize=(12, 6))
     fig.patch.set_facecolor("#0f0f0f")
@@ -289,7 +288,6 @@ def render_standings_tab():
             leader = driver_standings.iloc[0]
             m3.metric("Leader", leader["Driver"], f"{int(leader['Total'])} pts")
             st.markdown("<br>", unsafe_allow_html=True)
-            _render_points_chart(driver_standings, f"{s_year} Driver Championship Progression")
             st.markdown("<br>", unsafe_allow_html=True)
             _render_standings_table(driver_standings, is_constructor=False)
         else:
@@ -300,7 +298,6 @@ def render_standings_tab():
             leader = constructor_standings.iloc[0]
             m3.metric("Leader", leader["Team"], f"{int(leader['Total'])} pts")
             st.markdown("<br>", unsafe_allow_html=True)
-            _render_points_chart(constructor_standings, f"{s_year} Constructor Championship Progression", is_constructor=True)
             st.markdown("<br>", unsafe_allow_html=True)
             _render_standings_table(constructor_standings, is_constructor=True)
         else:
