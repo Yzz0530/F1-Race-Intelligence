@@ -33,6 +33,13 @@ TEAM_COLORS: dict[str, str] = {
 
 SESSION_TYPES = ["FP1", "FP2", "FP3", "Q", "Sprint Qualifying", "Sprint", "R"]
 
+# Display names for the session radio buttons
+SESSION_DISPLAY = {
+    "FP1": "FP1", "FP2": "FP2", "FP3": "FP3",
+    "Q": "Qualifying", "Sprint Qualifying": "Sprint Quali",
+    "Sprint": "Sprint Race", "R": "Race",
+}
+
 # ── F1 points system ──────────────────────────────────────────────────────
 RACE_POINTS = {1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2, 10: 1}
 SPRINT_POINTS = {1: 8, 2: 7, 3: 6, 4: 5, 5: 4, 6: 3, 7: 2, 8: 1}
@@ -84,44 +91,61 @@ def _build_results_table(results: pd.DataFrame, session_type: str) -> pd.DataFra
     """Build a clean results table from fastf1 results."""
     table = pd.DataFrame()
 
-    table["Pos"] = results["Position"].astype("Int64")
-    table["Driver"] = results["FullName"]
-    table["No"] = results["DriverNumber"]
-    table["Team"] = results["TeamName"]
+    if session_type in ("FP1", "FP2", "FP3"):
+        # Practice sessions: sort by best lap time, no position
+        df = results.copy()
+        if "BestLapTime" in df.columns:
+            df = df.sort_values("BestLapTime").reset_index(drop=True)
+        table["Rank"] = range(1, len(df) + 1)
+        table["Driver"] = df["FullName"]
+        table["No"] = df["DriverNumber"]
+        table["Team"] = df["TeamName"]
+        table["Best Lap"] = df["BestLapTime"].apply(_fmt_time) if "BestLapTime" in df.columns else "—"
+        table["Laps"] = df["Laps"] if "Laps" in df.columns else 0
+        table["Gap"] = ""
+        if "BestLapTime" in df.columns and len(df) > 0:
+            best = df["BestLapTime"].iloc[0]
+            table["Gap"] = df["BestLapTime"].apply(lambda x: _fmt_gap(x, best))
 
-    if session_type in ("Q", "Sprint Qualifying"):
-        table["Q1"] = results["Q1"].apply(_fmt_time)
-        table["Q2"] = results["Q2"].apply(_fmt_time)
-        table["Q3"] = results["Q3"].apply(_fmt_time)
-        # Gap to pole
-        pole_q3 = results["Q3"].iloc[0] if len(results) > 0 else None
-        table["Gap"] = results["Q3"].apply(lambda x: _fmt_gap(x, pole_q3))
+    else:
+        # Race/Sprint/Qualifying sessions: use Position
+        table["Pos"] = results["Position"].astype("Int64")
+        table["Driver"] = results["FullName"]
+        table["No"] = results["DriverNumber"]
+        table["Team"] = results["TeamName"]
 
-    elif session_type == "R":
-        table["Grid"] = results["GridPosition"].astype("Int64")
-        table["Points"] = results["Points"]
-        table["Status"] = results["Status"]
-        # Gap to leader
-        leader_time = results["Time"].iloc[0] if len(results) > 0 else None
-        table["Gap"] = results["Time"].apply(lambda x: _fmt_gap(x, leader_time))
+        if session_type in ("Q", "Sprint Qualifying"):
+            table["Q1"] = results["Q1"].apply(_fmt_time)
+            table["Q2"] = results["Q2"].apply(_fmt_time)
+            table["Q3"] = results["Q3"].apply(_fmt_time)
+            pole_q3 = results["Q3"].iloc[0] if len(results) > 0 else None
+            table["Gap"] = results["Q3"].apply(lambda x: _fmt_gap(x, pole_q3))
 
-    elif session_type == "Sprint":
-        table["Grid"] = results["GridPosition"].astype("Int64") if "GridPosition" in results.columns else "—"
-        table["Points"] = results["Points"]
-        table["Status"] = results["Status"]
-        leader_time = results["Time"].iloc[0] if len(results) > 0 else None
-        table["Gap"] = results["Time"].apply(lambda x: _fmt_gap(x, leader_time))
+        elif session_type == "R":
+            table["Grid"] = results["GridPosition"].astype("Int64")
+            table["Points"] = results["Points"].astype(int)
+            table["Status"] = results["Status"]
+            leader_time = results["Time"].iloc[0] if len(results) > 0 else None
+            table["Gap"] = results["Time"].apply(lambda x: _fmt_gap(x, leader_time))
 
-    elif session_type in ("FP1", "FP2", "FP3"):
-        table["Best"] = results["BestLapTime"].apply(_fmt_time) if "BestLapTime" in results.columns else "—"
-        table["Laps"] = results["Laps"] if "Laps" in results.columns else 0
+        elif session_type == "Sprint":
+            table["Grid"] = results["GridPosition"].astype("Int64") if "GridPosition" in results.columns else "—"
+            table["Points"] = results["Points"].astype(int)
+            table["Status"] = results["Status"]
+            leader_time = results["Time"].iloc[0] if len(results) > 0 else None
+            table["Gap"] = results["Time"].apply(lambda x: _fmt_gap(x, leader_time))
 
-    table = table.sort_values("Pos").reset_index(drop=True)
+        table = table.sort_values("Pos").reset_index(drop=True)
+
     return table
 
 
 def _render_position_chart(results: pd.DataFrame, session_type: str, race: str, year: int):
-    """Render a horizontal bar chart of finishing positions."""
+    """Render a horizontal bar chart of finishing positions (race/sprint/quali only)."""
+    # Skip chart for practice sessions — no meaningful positions
+    if session_type in ("FP1", "FP2", "FP3"):
+        return
+
     df = results.dropna(subset=["Position"]).copy()
     df = df.sort_values("Position")
 
@@ -205,7 +229,10 @@ def render_results_tab():
         return
 
     # ── Session selector ──────────────────────────────────────────────────
-    r_session = st.radio("Session", available, horizontal=True, key="res_session")
+    display_names = [SESSION_DISPLAY.get(s, s) for s in available]
+    name_to_key = {SESSION_DISPLAY.get(s, s): s for s in available}
+    chosen_display = st.radio("Session", display_names, horizontal=True, key="res_session")
+    r_session = name_to_key[chosen_display]
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -251,7 +278,7 @@ def render_results_tab():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Results table ─────────────────────────────────────────────────────
-    st.markdown(f"<div class='section-label'>{r_session} Results</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-label'>{chosen_display} Results</div>", unsafe_allow_html=True)
 
     # Color the team column
     def _color_team(row):
