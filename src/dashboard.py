@@ -91,7 +91,7 @@ def style_legend(ax: plt.Axes) -> None:
 
 # ── Config ───────────────────────────────────────────────────────
 
-st.set_page_config(page_title="F1 Race Intelligence", page_icon="🏎️", layout="wide")
+st.set_page_config(page_title="F1 Race Intelligence", page_icon="assets/favicon.ico", layout="wide")
 
 _css_path = os.path.join(os.path.dirname(__file__), "style.css")
 with open(_css_path, encoding="utf-8") as _f:
