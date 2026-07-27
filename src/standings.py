@@ -226,29 +226,53 @@ def _compute_constructor_standings(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _render_standings_table(standings: pd.DataFrame, is_constructor: bool = False):
-    """Render a styled standings table — no scroll, all rows visible."""
+    """Render a polished standings table — no scroll, all rows visible."""
     if standings.empty:
         st.info("No standings data available.")
         return
+
+    podium_colors = {1: "#ffd700", 2: "#c0c0c0", 3: "#cd7f32"}
 
     rows_html = ""
     for i, (_, row) in enumerate(standings.iterrows()):
         pos = i + 1
         team = row.get("Team", "")
         c = _team_color(team)
+        pc = podium_colors.get(pos, "")
+        pos_style = f"color:{pc};font-weight:800;font-size:1.05rem" if pc else "font-weight:600;color:#aaa"
+        row_bg = f"background:linear-gradient(90deg,{c}18 0%,{c}08 100%)"
+
         if is_constructor:
             name = row["Team"]
             pts = int(row["Total"])
-            rows_html += f'<tr style="background-color:{c}22"><td style="text-align:center;font-weight:600">{pos}</td><td>{name}</td><td style="text-align:center;font-weight:700">{pts}</td></tr>\n'
+            rows_html += (
+                f'<tr style="{row_bg};border-left:3px solid {c}">'
+                f'<td style="text-align:center;{pos_style};width:50px">{pos}</td>'
+                f'<td style="font-weight:500">{name}</td>'
+                f'<td style="text-align:center;font-weight:800;font-size:1.05rem;color:#fff;width:70px">{pts}</td>'
+                f'</tr>\n'
+            )
         else:
             name = row["Driver"]
             team_name = row["Team"]
             pts = int(row["Total"])
-            rows_html += f'<tr style="background-color:{c}22"><td style="text-align:center;font-weight:600">{pos}</td><td>{name}</td><td>{team_name}</td><td style="text-align:center;font-weight:700">{pts}</td></tr>\n'
+            rows_html += (
+                f'<tr style="{row_bg};border-left:3px solid {c}">'
+                f'<td style="text-align:center;{pos_style};width:50px">{pos}</td>'
+                f'<td style="font-weight:600">{name}</td>'
+                f'<td style="color:{c};font-weight:500">{team_name}</td>'
+                f'<td style="text-align:center;font-weight:800;font-size:1.05rem;color:#fff;width:70px">{pts}</td>'
+                f'</tr>\n'
+            )
 
-    hdr = "<th>Pos</th><th>Driver</th><th>Team</th><th>Points</th>" if not is_constructor else "<th>Pos</th><th>Team</th><th>Points</th>"
-    html = f"""<table style="width:100%;border-collapse:collapse;font-size:0.92rem;color:#e0e0e0">
-<thead><tr style="border-bottom:2px solid #e10600">{hdr}</tr></thead>
+    hdr = "<th>Pos</th><th>Driver</th><th>Team</th><th>Pts</th>" if not is_constructor else "<th>Pos</th><th>Team</th><th>Pts</th>"
+    html = f"""<style>
+.standings-tbl td, .standings-tbl th {{ padding: 8px 12px }}
+.standings-tbl tr:hover {{ filter: brightness(1.2) }}
+.standings-tbl tr {{ transition: background 0.15s }}
+</style>
+<table class="standings-tbl" style="width:100%;border-collapse:collapse;font-size:0.92rem;color:#e0e0e0">
+<thead><tr style="border-bottom:2px solid #e10600;text-transform:uppercase;font-size:0.78rem;letter-spacing:0.08em;color:#888">{hdr}</tr></thead>
 <tbody>{rows_html}</tbody></table>"""
     st.markdown(html, unsafe_allow_html=True)
 
