@@ -17,13 +17,15 @@ Built as a portfolio project targeting motorsport analytics — combining ML, da
 | **CAR TELEMETRY** | Per‑driver car data visualization (speed, RPM, gear, DRS) |
 | **AI ASSISTANT** | Natural‑language strategy Q&A ("Should I pit?", "What's the fastest strategy?") |
 | **RACE TIMELINE** | Stint‑by‑stint race timeline, degradation chart, key events & actionable insights |
+| **RESULTS** | Track session results — FP1, FP2, FP3, Qualifying, Sprint Qualifying, Sprint Race, Race |
+| **STANDINGS** | Driver & Constructor championship standings with team‑color styled tables |
 
 ## Performance
 
-- **XGBoost (absolute lap‑time)**: ~0.73s MAE — 27 features, Optuna‑tuned
-- **Training data**: 28,000+ laps across the 2026 F1 season
+- **XGBoost (absolute lap‑time)**: 0.48s MAE — 27 features, Optuna‑tuned
+- **Training data**: 28,000+ laps across 2025–2026 F1 seasons
 - **Physics‑ML blend**: hybrid prediction for known and unseen circuits
-- **Monte Carlo strategy engine**: 30‑simulation configurable runs with SC/DNF modelling
+- **Monte Carlo strategy engine**: configurable runs with SC/DNF modelling
 
 ## Pipeline
 
@@ -32,7 +34,7 @@ download_all_races.py    → Downloads F1 session data via fastf1
 prepare_enhanced_data.py → Cleans data & engineers features (circuit, weather, sector speeds)
 train.py                 → Optuna‑tuned XGBoost (absolute lap‑time regression)
 strategy_optimizer.py    → Monte Carlo strategy simulation (physics + ML blend)
-dashboard.py             → Streamlit UI (9 tabs, interactive controls)
+dashboard.py             → Streamlit UI (11 tabs, interactive controls)
 ```
 
 ## Tech Stack
@@ -83,7 +85,7 @@ streamlit run src/dashboard.py
 
 ```
 src/
-├── dashboard.py             # Streamlit UI (8 tabs)
+├── dashboard.py             # Streamlit UI (11 tabs)
 ├── style.css                # Custom F1‑themed CSS
 ├── train.py                 # Optuna + XGBoost training pipeline
 ├── download_all_races.py    # fastf1 data ingestion
@@ -92,9 +94,19 @@ src/
 ├── race_physics.py          # Physics engine (fuel, tyre wear, lap modelling)
 ├── undercut_analyzer.py     # Undercut / overcut analysis
 ├── telemetry_loader.py      # Fast‑lap & stint telemetry
-└── strategy_assistant.py    # AI Assistant (natural‑language Q&A)
+├── strategy_assistant.py    # AI Assistant (natural‑language Q&A)
+├── race_timeline.py         # Stint‑by‑stint race timeline & degradation
+├── results.py               # Track session results (FP/Q/Race)
+├── standings.py             # Championship standings tables
 tests/
 └── test_optimizer.py        # 24 unit tests
+assets/
+└── f1_theme.mp3             # Background theme music
+data/
+├── all_races_master.csv     # Combined 2025+2026 training data
+├── all_races_2026.csv       # 2026 season data
+├── all_races_2025.csv       # 2025 season data
+└── circuits_metadata.csv    # Circuit characteristics
 ```
 
 ## Disclaimer
