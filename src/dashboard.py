@@ -717,13 +717,13 @@ elif active_tab == "SC SIMULATOR":
     with cd:
         sc_lap = st.number_input("SC Deployed on Lap", 3, 78, 14, key="sc_lap_num")
 
-    ca, cb, cc = st.columns(3)
+    ca, cb = st.columns(2)
     with ca:
         sc_dur = st.slider("SC Duration (laps)", 1, 6, 3)
     with cb:
         sc_free = st.checkbox("Free Pit Under SC", True)
-    with cc:
-        sc_show = st.button("RUN SC SIMULATION", type="primary")
+
+    sc_show = st.button("RUN SC SIMULATION", type="primary")
 
     if sc_show:
         base_lt = base_lap
