@@ -727,7 +727,7 @@ elif active_tab == "SC SIMULATOR":
     with cb:
         sc_free = st.checkbox("Free Pit Under SC", True)
 
-    sc_show = st.button("RUN SC SIMULATION", type="primary", use_container_width=True)
+    sc_show = st.button("RUN SC SIMULATION", type="primary")
 
     if sc_show:
         base_lt = base_lap
