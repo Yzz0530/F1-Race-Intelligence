@@ -23,7 +23,7 @@ def render_race_timeline(opt, tracks, DRIVERS_LIST, _team_name, COMPOUND_COLORS,
     with rt_c4:
         rt_sc = st.slider("SC Probability", 0.0, 0.5, 0.20, 0.05, key="rt_sc")
 
-    if not st.button("🏁 Build Timeline", type="primary", use_container_width=False):
+    if not st.button("Build Timeline", type="primary", use_container_width=False):
         return
 
     with st.spinner("Simulating race strategy..."):

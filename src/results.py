@@ -247,7 +247,7 @@ def render_results_tab():
     if loaded_key != current_key:
         st.session_state["_show_results"] = False
 
-    if st.button("🏁  Load Results", key="load_results_btn"):
+    if st.button("Load Results", key="load_results_btn"):
         st.session_state["_show_results"] = True
         st.session_state["_loaded_track_key"] = current_key
     if not st.session_state.get("_show_results"):
