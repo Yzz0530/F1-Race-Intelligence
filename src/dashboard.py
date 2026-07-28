@@ -244,7 +244,6 @@ with st.sidebar:
         unsafe_allow_html=True,
 
     )
-    # Background music playlist (invisible, auto-plays, loops)
     # Background music playlist (invisible, auto-plays, rotates)
     _gh = "https://raw.githubusercontent.com/Yzz0530/F1-Race-Intelligence/master/assets"
     _songs = [
@@ -254,25 +253,28 @@ with st.sidebar:
         _gh + "/rose_messy.mp3",
         _gh + "/ed_sheeran_drive.mp3",
     ]
-    _js_songs = ",".join("\"" + s + "\"" for s in _songs)
-    _audio_html = (
+    # Part 1: audio element in main DOM (survives Streamlit reruns)
+    st.markdown(
         '<div style="position:absolute;opacity:0;width:0;height:0;overflow:hidden">'
-        '<audio id="f1audio"></audio>'
-        '<script>'
-        'var playlist = [' + _js_songs + '];'
-        'var idx = 0;'
-        'var a = document.getElementById("f1audio");'
-        'if (a) { a.volume = 0.5; }'
-        'function playNext() { idx = (idx + 1) % playlist.length; a.src = playlist[idx]; a.load(); a.play().catch(function(){}); }'
-        'if (a) { a.addEventListener("ended", playNext); a.src = playlist[0]; a.load(); a.play().catch(function(){}); }'
-        'document.addEventListener("click", function handler() {'
-        '  var a = document.getElementById("f1audio");'
-        '  if (a && a.paused) { a.play().catch(function(){}); }'
-        '  document.removeEventListener("click", handler);'
-        '})'
-        '</script></div>'
+        '<audio id="f1audio"><source src="' + _songs[0] + '" type="audio/mpeg"></audio>'
+        '</div>',
+        unsafe_allow_html=True,
     )
-    st.html(_audio_html, unsafe_allow_javascript=True)
+    # Part 2: JS controller in iframe (not stripped by DOMPurify)
+    _js_songs = ",".join('"' + s + '"' for s in _songs)
+    components.html(
+        '<script>'
+        'var a=parent.document.getElementById("f1audio");'
+        'var pl=[' + _js_songs + '];'
+        'var si=0;'
+        'if(a)a.volume=0.5;'
+        'function pn(){si=(si+1)%pl.length;a.src=pl[si];a.load();a.play().catch(function(){}); }'
+        'if(a){a.addEventListener("ended",pn);a.src=pl[0];a.load();a.play().catch(function(){}); }'
+        'document.addEventListener("click",function h(){var x=parent.document.getElementById("f1audio");'
+        'if(x&&x.paused)x.play().catch(function(){});document.removeEventListener("click",h);});'
+        '</script>',
+        height=0
+    )
     st.markdown("<hr style='margin-top:2rem;opacity:0.3;'>", unsafe_allow_html=True)
     st.markdown(
         "<div style='color:var(--text-dim);font-size:0.55rem;text-align:center;letter-spacing:0.5px;line-height:1.6;padding-bottom:0.5rem;'>"
