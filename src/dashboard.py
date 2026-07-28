@@ -706,24 +706,29 @@ elif active_tab == "TRACK ANALYSIS":
 # ══════════════════════════════════════════════════════════════════
 
 elif active_tab == "SC SIMULATOR":
-    ca, cb, cc, cd = st.columns(4)
+    # Race parameters
+    ca, cb = st.columns(2)
     with ca:
         sc_driver = st.selectbox("Driver", DRIVERS_LIST, index=DRIVERS_LIST.index("VER"), key="sc_drv",
                                  format_func=lambda d: f"{d}  ·  {_team_name(d)}")
     with cb:
         sc_track = st.selectbox("Track", tracks, index=tracks.index("British Grand Prix"), key="sc_trk")
-    with cc:
+
+    ca, cb = st.columns(2)
+    with ca:
         sc_total = st.number_input("Total Laps", 30, 80, 52, key="sc_tot")
-    with cd:
+    with cb:
         sc_lap = st.number_input("SC Deployed on Lap", 3, 78, 14, key="sc_lap_num")
 
-    ca, cb, cc = st.columns(3)
+    # SC parameters
+    ca, cb, cc = st.columns([2, 1, 1])
     with ca:
         sc_dur = st.slider("SC Duration (laps)", 1, 6, 3)
     with cb:
         sc_free = st.checkbox("Free Pit Under SC", True)
     with cc:
-        sc_show = st.button("RUN SC SIMULATION", type="primary")
+        st.write("")
+        sc_show = st.button("RUN SC SIMULATION", type="primary", use_container_width=True)
 
     if sc_show:
         base_lt = base_lap
@@ -732,29 +737,22 @@ elif active_tab == "SC SIMULATOR":
             sc_duration=sc_dur, sc_free_pit=sc_free,
         )
         saved = res["time_saved"]
-        verdict = "GAIN" if saved > 0 else "LOSS"
 
-        st.markdown(
-            f"<div class='card' style='display:flex;gap:2rem;flex-wrap:wrap;'>"
-            f"<div><span style='color:var(--text-dim);font-size:0.6rem;'>GREEN FLAG TOTAL</span><br>"
-            f"<span style='font-family:var(--font-mono);font-size:1.3rem;color:var(--text-primary);'>{res['base_total']}s</span></div>"
-            f"<div><span style='color:var(--text-dim);font-size:0.6rem;'>SC TOTAL</span><br>"
-            f"<span style='font-family:var(--font-mono);font-size:1.3rem;color:var(--text-primary);'>{res['sc_total']}s</span></div>"
-            f"<div><span style='color:var(--text-dim);font-size:0.6rem;'>DELTA</span><br>"
-            f"<span style='font-family:var(--font-mono);font-size:1.3rem;color:var(--f1-red);'>{saved:+.1f}s</span></div>"
-            f"</div>", unsafe_allow_html=True,
-        )
+        # Results card
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Green Flag Total", f"{res['base_total']}s")
+        c2.metric("SC Total", f"{res['sc_total']}s")
+        c3.metric("Delta", f"{saved:+.1f}s", delta=f"{saved:+.1f}s")
 
-        adv = []
+        # Advice
         if res["free_pit"] and saved > 0:
-            adv.append("✅ **Pitting under SC is advantageous.** Reduced pit loss (12s vs 22s) + field bunches. Best move: pit immediately for fresh tyres.")
+            st.success("Pitting under SC is advantageous. Reduced pit loss (12s vs 22s) + field bunches. Best move: pit immediately for fresh tyres.")
         elif saved < -5:
-            adv.append("⚠️ **SC hurts your race** — you lose the gap you built. Stay out if track position matters.")
+            st.warning("SC hurts your race — you lose the gap you built. Stay out if track position matters.")
         else:
-            adv.append("⏱️ SC has minimal net effect. Consider matching opponents' strategy.")
+            st.info("SC has minimal net effect. Consider matching opponents' strategy.")
 
-        adv.append(f"🚨 Lap {sc_lap} | {sc_dur}-lap SC | {'Free pit available' if sc_free else 'No free pit'}")
-        st.markdown("  \n".join(adv))
+        st.caption(f"Lap {sc_lap} | {sc_dur}-lap SC | {'Free pit available' if sc_free else 'No free pit'}")
 
         # Visual timeline
         fig, ax = plt.subplots(figsize=(12, 2.5))
