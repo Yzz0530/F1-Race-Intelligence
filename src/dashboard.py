@@ -706,11 +706,6 @@ elif active_tab == "TRACK ANALYSIS":
 # ══════════════════════════════════════════════════════════════════
 
 elif active_tab == "SC SIMULATOR":
-    st.markdown(
-        "<div style='display:flex;align-items:center;gap:0.6rem;'>"
-        "<h3 style='margin:0;color:var(--text-primary);'>Safety Car Scenario Simulator</h3></div>",
-        unsafe_allow_html=True,
-    )
     ca, cb, cc, cd = st.columns(4)
     with ca:
         sc_driver = st.selectbox("Driver", DRIVERS_LIST, index=DRIVERS_LIST.index("VER"), key="sc_drv",
@@ -785,11 +780,6 @@ elif active_tab == "SC SIMULATOR":
 # ══════════════════════════════════════════════════════════════════
 
 elif active_tab == "PIT ANALYSIS":
-    st.markdown(
-        "<div style='display:flex;align-items:center;gap:0.6rem;'>"
-        "<h3 style='margin:0;color:var(--text-primary);'>Pit Analysis</h3></div>",
-        unsafe_allow_html=True,
-    )
     ca, cb, cc, cd = st.columns(4)
     with ca:
         u_driver = st.selectbox("Driver", DRIVERS_LIST, index=DRIVERS_LIST.index("VER"), key="u_drv")
@@ -889,14 +879,6 @@ elif active_tab == "PIT ANALYSIS":
 # ══════════════════════════════════════════════════════════════════
 
 elif active_tab == "CAR TELEMETRY":
-    st.markdown(
-        "<div style='display:flex;align-items:center;gap:0.6rem;'>"
-        "<h3 style='margin:0;color:var(--text-primary);'>Car Telemetry Viewer</h3>"
-        "<span style='color:var(--text-muted);font-size:0.7rem;'>"
-        "Speed · Throttle · Brake · Gear · DRS</span></div>",
-        unsafe_allow_html=True,
-    )
-
     ca, cb, cc, cd = st.columns(4)
     with ca:
         telem_year = st.selectbox("Year", [2026, 2025], key="telem_yr")
@@ -957,13 +939,6 @@ elif active_tab == "CAR TELEMETRY":
 # ══════════════════════════════════════════════════════════════════
 
 elif active_tab == "AI ASSISTANT":
-    st.markdown(
-        "<div style='display:flex;align-items:center;gap:0.6rem;'>"
-        "<h3 style='margin:0;color:var(--text-primary);'>AI Strategy Assistant</h3>"
-        "<span style='color:var(--text-muted);font-size:0.7rem;'>Ask your race engineer</span></div>",
-        unsafe_allow_html=True,
-    )
-
     ca, cb, cc, cd = st.columns(4)
     with ca:
         ai_driver = st.selectbox("Driver", DRIVERS_LIST, index=DRIVERS_LIST.index("VER"), key="ai_drv")
