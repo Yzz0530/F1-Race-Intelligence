@@ -708,7 +708,6 @@ elif active_tab == "TRACK ANALYSIS":
 elif active_tab == "SC SIMULATOR":
     st.markdown(
         "<div style='display:flex;align-items:center;gap:0.6rem;'>"
-        "<span style='font-size:1.5rem;'>🚨</span>"
         "<h3 style='margin:0;color:var(--text-primary);'>Safety Car Scenario Simulator</h3></div>",
         unsafe_allow_html=True,
     )
@@ -788,8 +787,7 @@ elif active_tab == "SC SIMULATOR":
 elif active_tab == "PIT ANALYSIS":
     st.markdown(
         "<div style='display:flex;align-items:center;gap:0.6rem;'>"
-        "<span style='font-size:1.5rem;'>✂️</span>"
-        "<h3 style='margin:0;color:var(--text-primary);'>Undercut / Overcut Analyzer</h3></div>",
+        "<h3 style='margin:0;color:var(--text-primary);'>Pit Analysis</h3></div>",
         unsafe_allow_html=True,
     )
     ca, cb, cc, cd = st.columns(4)
@@ -893,7 +891,6 @@ elif active_tab == "PIT ANALYSIS":
 elif active_tab == "CAR TELEMETRY":
     st.markdown(
         "<div style='display:flex;align-items:center;gap:0.6rem;'>"
-        "<span style='font-size:1.5rem;'>📊</span>"
         "<h3 style='margin:0;color:var(--text-primary);'>Car Telemetry Viewer</h3>"
         "<span style='color:var(--text-muted);font-size:0.7rem;'>"
         "Speed · Throttle · Brake · Gear · DRS</span></div>",
@@ -962,7 +959,6 @@ elif active_tab == "CAR TELEMETRY":
 elif active_tab == "AI ASSISTANT":
     st.markdown(
         "<div style='display:flex;align-items:center;gap:0.6rem;'>"
-        "<span style='font-size:1.5rem;'>🤖</span>"
         "<h3 style='margin:0;color:var(--text-primary);'>AI Strategy Assistant</h3>"
         "<span style='color:var(--text-muted);font-size:0.7rem;'>Ask your race engineer</span></div>",
         unsafe_allow_html=True,

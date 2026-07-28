@@ -4,7 +4,7 @@
 def render_race_timeline(opt, tracks, DRIVERS_LIST, _team_name, COMPOUND_COLORS, plt, pd, st):
 
     st.markdown(
-        "<h3 style='margin:0 0 0.5rem;'>📊 Race Timeline</h3>"
+        "<h3 style='margin:0 0 0.5rem;'>Race Timeline</h3>"
         "<p style='color:var(--text-dim);font-size:0.8rem;margin-bottom:1rem;'>"
         "See the full race unfold — strategy, pit stops, tyre degradation, and key events.</p>",
         unsafe_allow_html=True,
