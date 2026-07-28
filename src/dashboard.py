@@ -311,7 +311,7 @@ st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
 
 TAB_NAMES = ["RESULTS", "STANDINGS", "RACE TIMELINE", "DRIVER BATTLE",
              "TRACK ANALYSIS", "STINT TELEMETRY", "CAR TELEMETRY", "STRATEGY",
-             "SC SIMULATOR", "UNDERCUT", "AI ASSISTANT"]
+             "SC SIMULATOR", "PIT ANALYSIS", "AI ASSISTANT"]
 active_tab = st.radio("tab_nav", TAB_NAMES, horizontal=True, label_visibility="collapsed")
 
 
@@ -782,10 +782,10 @@ elif active_tab == "SC SIMULATOR":
 
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 6 — UNDERCUT / OVERCUT ANALYZER
+# TAB 6 — PIT ANALYSIS
 # ══════════════════════════════════════════════════════════════════
 
-elif active_tab == "UNDERCUT":
+elif active_tab == "PIT ANALYSIS":
     st.markdown(
         "<div style='display:flex;align-items:center;gap:0.6rem;'>"
         "<span style='font-size:1.5rem;'>✂️</span>"
@@ -810,7 +810,7 @@ elif active_tab == "UNDERCUT":
     with cc:
         u_gap = st.slider("Gap to Car Ahead (s)", 0.0, 5.0, 2.0, 0.1, key="u_gap")
 
-    if st.button("ANALYZE UNDERCUT", type="primary"):
+    if st.button("ANALYZE PIT", type="primary"):
         uc = undercut_benefit(u_pit_lap, u_laps, u_tyre_age, u_compound, pit_loss=PIT_LOSS_DEFAULT)
         effective_gap = u_gap + PIT_LOSS_DEFAULT - uc["gain_from_fresh"]
         success = effective_gap < 0
