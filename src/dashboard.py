@@ -252,6 +252,7 @@ with st.sidebar:
         _gh + "/tate_mcrae_just_keep_watching.mp3",
         _gh + "/rose_messy.mp3",
         _gh + "/ed_sheeran_drive.mp3",
+        _gh + "/f1_additional.mp3",
     ]
     # Part 1: audio element in main DOM (survives Streamlit reruns)
     st.markdown(
