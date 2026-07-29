@@ -140,56 +140,46 @@ except Exception as e:
     st.stop()
 
 
-# ACTIVE CIRCUIT ROTATION (sidebar — auto-cycles every 10s)
+# ACTIVE CIRCUIT ROTATION (sidebar — auto-cycles every 10s, JS-driven, no iframe blink)
 # ══════════════════════════════════════════════════════════════════
 
-_prev_circuit = None
 
-@st.fragment(run_every=10)
 def _render_active_circuit():
-    global _prev_circuit
-    idx = int(time.time() / 10) % len(tracks)
-    name = tracks[idx]
-    prev = _prev_circuit
-    _prev_circuit = name
+    # Build circuit data array once — embedded in JS, no fragment re-runs
+    circuit_data = []
+    for name in tracks:
+        info = opt.circuit_info.get(name, {})
+        circuit_data.append({
+            "name": name,
+            "length": info.get("Length_km", 0),
+            "corners": info.get("Corners", 0),
+            "speed": info.get("AvgSpeed", 0),
+        })
 
-    info = opt.circuit_info.get(name, {})
-    length = info.get("Length_km", 0)
-    corners = info.get("Corners", 0)
-    speed = info.get("AvgSpeed", 0)
+    import json
+    data_json = json.dumps(circuit_data)
+    first = circuit_data[0]
 
-    p_len = p_corners = p_speed = 0
-    if prev:
-        pi = opt.circuit_info.get(prev, {})
-        p_len, p_corners, p_speed = pi.get("Length_km", 0), pi.get("Corners", 0), pi.get("AvgSpeed", 0)
-
-    old_html = ""
-    if prev:
-        old_html = f'''<div class="old" style="position:absolute;inset:0;text-align:center;">
-            <div style="color:rgba(255,255,255,0.9);font-weight:600;font-size:0.85rem;">{prev}</div>
-            <div style="color:rgba(255,255,255,0.5);font-size:0.6rem;margin-top:0.75rem;">{p_len} km · {p_corners} corners · {p_speed} km/h</div>
-        </div>'''
-
-    new_cls = "new" if prev else ""
-
-    html = f"""<div style="
-        font-family:Inter,'Segoe UI',sans-serif;
-        text-align:left;
-    ">
-        <style>
-            @keyframes oldFade {{0%{{opacity:1;}}100%{{opacity:0;}}}}
-            @keyframes newFade {{0%{{opacity:0;}}100%{{opacity:1;}}}}
-            .old{{animation:oldFade 0.35s ease-out forwards;}}
-            .new{{animation:newFade 0.45s ease-out 0.35s both;}}
-            body{{margin:0;background:transparent;}}
-        </style>
-        <div style="position:relative;min-height:1rem;text-align:center;">
-            {old_html}
-            <div class="{new_cls}">
-                <div style="color:rgba(255,255,255,0.9);font-weight:600;font-size:0.85rem;">{name}</div>
-                <div style="color:rgba(255,255,255,0.5);font-size:0.6rem;margin-top:0.75rem;">{length} km · {corners} corners · {speed} km/h</div>
-            </div>
-        </div>
+    html = f"""<div style="font-family:Inter,'Segoe UI',sans-serif;text-align:center;position:relative;min-height:1rem;">
+    <div id="c-name" style="color:rgba(255,255,255,0.9);font-weight:600;font-size:0.85rem;transition:opacity 0.4s ease;">{first['name']}</div>
+    <div id="c-info" style="color:rgba(255,255,255,0.5);font-size:0.6rem;margin-top:0.75rem;transition:opacity 0.4s ease;">{first['length']} km · {first['corners']} corners · {first['speed']} km/h</div>
+    <script>
+    var _cd = {data_json};
+    var _i = 1;
+    setInterval(function(){{
+        var _n = document.getElementById('c-name');
+        var _d = document.getElementById('c-info');
+        _n.style.opacity = '0';
+        _d.style.opacity = '0';
+        setTimeout(function(){{
+            _n.textContent = _cd[_i].name;
+            _d.textContent = _cd[_i].length + ' km · ' + _cd[_i].corners + ' corners · ' + _cd[_i].speed + ' km/h';
+            _n.style.opacity = '1';
+            _d.style.opacity = '1';
+        }}, 400);
+        _i = (_i + 1) % _cd.length;
+    }}, 10000);
+    </script>
     </div>"""
 
     components.html(html, height=72)
