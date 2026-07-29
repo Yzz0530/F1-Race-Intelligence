@@ -183,7 +183,6 @@ def _render_active_circuit():
             .new{{animation:newFade 0.45s ease-out 0.35s both;}}
             body{{margin:0;background:transparent;}}
         </style>
-        <div style="color:rgba(255,255,255,0.35);font-size:0.6rem;letter-spacing:0.5px;text-transform:uppercase;">Active Circuit</div><br>
         <div style="position:relative;min-height:1rem;text-align:center;">
             {old_html}
             <div class="{new_cls}">
@@ -233,6 +232,10 @@ with st.sidebar:
     )
     st.markdown("<hr>", unsafe_allow_html=True)
 
+    st.markdown(
+        "<div style='color:rgba(255,255,255,0.35);font-size:0.6rem;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:0.35rem;'>Active Circuit</div>",
+        unsafe_allow_html=True,
+    )
     _render_active_circuit()
 
     st.markdown("<hr>", unsafe_allow_html=True)
