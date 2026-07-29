@@ -498,16 +498,11 @@ div[data-testid="stRadio"] > label {
 [data-testid="stSidebar"] hr {
     border: none; height: 1px;
     background: linear-gradient(90deg, var(--border-subtle), transparent);
-    margin: 0.3rem 0 0.4rem;
+    margin: 1rem 0;
 }
 
 [data-testid="stSidebar"] .sidebar-content {
     padding: 1.2rem 1rem;
-}
-
-/* Tighten vertical spacing in sidebar */
-[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-    gap: 0.1rem !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
