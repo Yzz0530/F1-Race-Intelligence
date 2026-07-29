@@ -153,9 +153,9 @@ def _render_active_circuit():
         info = opt.circuit_info.get(name, {})
         circuit_data.append([
             name,
-            info.get("Length_km", 0),
-            info.get("Corners", 0),
-            info.get("AvgSpeed", 0),
+            float(info.get("Length_km", 0)),
+            int(info.get("Corners", 0)),
+            float(info.get("AvgSpeed", 0)),
         ])
 
     data_json = json.dumps(circuit_data)
