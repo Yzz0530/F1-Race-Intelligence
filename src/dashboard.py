@@ -140,26 +140,53 @@ except Exception as e:
     st.stop()
 
 
-# ACTIVE CIRCUIT ROTATION (sidebar — auto-cycles every 10s)
+# ACTIVE CIRCUIT ROTATION (sidebar — auto-cycles every 10s, JS fade transition)
 # ══════════════════════════════════════════════════════════════════
 
+import json
 
-@st.fragment(run_every=10)
+
 def _render_active_circuit():
-    idx = int(time.time() / 10) % len(tracks)
-    name = tracks[idx]
-    info = opt.circuit_info.get(name, {})
-    length = info.get("Length_km", 0)
-    corners = info.get("Corners", 0)
-    speed = info.get("AvgSpeed", 0)
+    # Build circuit data once — embedded in JS, no fragment re-runs
+    circuit_data = []
+    for name in tracks:
+        info = opt.circuit_info.get(name, {})
+        circuit_data.append([
+            name,
+            info.get("Length_km", 0),
+            info.get("Corners", 0),
+            info.get("AvgSpeed", 0),
+        ])
 
-    st.markdown(
-        f"<div style='font-family:Inter,\"Segoe UI\",sans-serif;text-align:center;'>"
-        f"<div style='color:rgba(255,255,255,0.9);font-weight:600;font-size:0.85rem;'>{name}</div>"
-        f"<div style='color:rgba(255,255,255,0.5);font-size:0.6rem;margin-top:0.75rem;'>{length} km · {corners} corners · {speed} km/h</div>"
-        f"</div>",
-        unsafe_allow_html=True,
+    data_json = json.dumps(circuit_data)
+    first = circuit_data[0]
+
+    html = (
+        '<div style="font-family:Inter,\'Segoe UI\',sans-serif;text-align:center;">'
+        '<div id="cn" style="color:rgba(255,255,255,0.9);font-weight:600;font-size:0.85rem;transition:opacity 0.4s;">'
+        + str(first[0]) +
+        '</div>'
+        '<div id="ci" style="color:rgba(255,255,255,0.5);font-size:0.6rem;margin-top:0.75rem;transition:opacity 0.4s;">'
+        + str(first[1]) + ' km · ' + str(first[2]) + ' corners · ' + str(first[3]) + ' km/h'
+        '</div>'
+        '<script>'
+        'var d=' + data_json + ';'
+        'var i=1;'
+        'setInterval(function(){'
+        'var n=document.getElementById("cn"),f=document.getElementById("ci");'
+        'n.style.opacity="0";f.style.opacity="0";'
+        'setTimeout(function(){'
+        'n.textContent=d[i][0];'
+        'f.textContent=d[i][1]+" km \\u00b7 "+d[i][2]+" corners \\u00b7 "+d[i][3]+" km/h";'
+        'n.style.opacity="1";f.style.opacity="1";'
+        '},400);'
+        'i=(i+1)%d.length;'
+        '},10000);'
+        '</script>'
+        '</div>'
     )
+
+    components.html(html, height=72)
 
 
 # ══════════════════════════════════════════════════════════════════
