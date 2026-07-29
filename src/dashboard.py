@@ -140,49 +140,26 @@ except Exception as e:
     st.stop()
 
 
-# ACTIVE CIRCUIT ROTATION (sidebar — auto-cycles every 10s, JS-driven, no iframe blink)
+# ACTIVE CIRCUIT ROTATION (sidebar — auto-cycles every 10s)
 # ══════════════════════════════════════════════════════════════════
 
 
+@st.fragment(run_every=10)
 def _render_active_circuit():
-    # Build circuit data array once — embedded in JS, no fragment re-runs
-    circuit_data = []
-    for name in tracks:
-        info = opt.circuit_info.get(name, {})
-        circuit_data.append({
-            "name": name,
-            "length": info.get("Length_km", 0),
-            "corners": info.get("Corners", 0),
-            "speed": info.get("AvgSpeed", 0),
-        })
+    idx = int(time.time() / 10) % len(tracks)
+    name = tracks[idx]
+    info = opt.circuit_info.get(name, {})
+    length = info.get("Length_km", 0)
+    corners = info.get("Corners", 0)
+    speed = info.get("AvgSpeed", 0)
 
-    import json
-    data_json = json.dumps(circuit_data)
-    first = circuit_data[0]
-
-    html = f"""<div style="font-family:Inter,'Segoe UI',sans-serif;text-align:center;position:relative;min-height:1rem;">
-    <div id="c-name" style="color:rgba(255,255,255,0.9);font-weight:600;font-size:0.85rem;transition:opacity 0.4s ease;">{first['name']}</div>
-    <div id="c-info" style="color:rgba(255,255,255,0.5);font-size:0.6rem;margin-top:0.75rem;transition:opacity 0.4s ease;">{first['length']} km · {first['corners']} corners · {first['speed']} km/h</div>
-    <script>
-    var _cd = {data_json};
-    var _i = 1;
-    setInterval(function(){{
-        var _n = document.getElementById('c-name');
-        var _d = document.getElementById('c-info');
-        _n.style.opacity = '0';
-        _d.style.opacity = '0';
-        setTimeout(function(){{
-            _n.textContent = _cd[_i].name;
-            _d.textContent = _cd[_i].length + ' km · ' + _cd[_i].corners + ' corners · ' + _cd[_i].speed + ' km/h';
-            _n.style.opacity = '1';
-            _d.style.opacity = '1';
-        }}, 400);
-        _i = (_i + 1) % _cd.length;
-    }}, 10000);
-    </script>
-    </div>"""
-
-    components.html(html, height=72)
+    st.markdown(
+        f"<div style='font-family:Inter,\"Segoe UI\",sans-serif;text-align:center;'>"
+        f"<div style='color:rgba(255,255,255,0.9);font-weight:600;font-size:0.85rem;'>{name}</div>"
+        f"<div style='color:rgba(255,255,255,0.5);font-size:0.6rem;margin-top:0.75rem;'>{length} km · {corners} corners · {speed} km/h</div>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════
