@@ -176,12 +176,14 @@ def _add_circuit_features(df: pd.DataFrame, circuits_df: pd.DataFrame) -> pd.Dat
 
 def _load_weather_for_year(year: int, df: pd.DataFrame) -> pd.DataFrame:
     """Load and merge weather data for all races in `df` (all from same `year`)."""
+    # Aliases for normalised race names → fastf1 schedule names (e.g. 2025 Spain)
+    RACE_NAME_ALIASES = {"Barcelona Grand Prix": "Spanish Grand Prix"}
     all_races: pd.Index = df["Race"].unique()
     race_map = _get_race_map(year)
     weather_dfs: list[pd.DataFrame] = []
 
     for i, race in enumerate(all_races):
-        short_name = race_map.get(race)
+        short_name = race_map.get(race) or race_map.get(RACE_NAME_ALIASES.get(race, ""))
         if short_name is None:
             print(f"  [{i+1}/{len(all_races)}] {race}: no location in {year} schedule, skipping weather")
             continue

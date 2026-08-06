@@ -37,7 +37,7 @@ SESSION_TYPES = ["FP1", "FP2", "FP3", "Q", "Sprint Qualifying", "Sprint", "R"]
 SESSION_DISPLAY = {
     "FP1": "FP1", "FP2": "FP2", "FP3": "FP3",
     "Q": "Qualifying", "Sprint Qualifying": "Sprint Qualifying",
-    "Sprint": "Sprint Race", "R": "Race",
+    "Sprint": "Sprint", "R": "Race",
 }
 
 # Sessions that need laps loaded to get best lap times (results have no position data)
@@ -198,7 +198,7 @@ def _render_position_chart(results: pd.DataFrame, session_type: str, race: str, 
     ax.spines["bottom"].set_color("#333333")
     ax.spines["left"].set_color("#333333")
 
-    plt.title(f"{race} {year} — {session_type}", color="#eeeeee", fontsize=13, fontweight="bold", pad=15)
+    plt.title(f"{race} {year} — {SESSION_DISPLAY.get(session_type, session_type)}", color="#eeeeee", fontsize=13, fontweight="bold", pad=15)
     plt.tight_layout()
     st.pyplot(fig)
     plt.close(fig)
@@ -270,11 +270,11 @@ def render_results_tab():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Load and display results ──────────────────────────────────────────
-    with st.spinner(f"Loading {r_session} results..."):
+    with st.spinner(f"Loading {SESSION_DISPLAY.get(r_session, r_session)} results..."):
         results = _get_results(r_year, r_track, r_session)
 
     if results is None or results.empty:
-        st.info(f"No results available for {r_session}.")
+        st.info(f"No results available for {SESSION_DISPLAY.get(r_session, r_session)}.")
         return
 
     table = _build_results_table(results, r_session)
