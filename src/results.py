@@ -162,13 +162,16 @@ def _build_results_table(results: pd.DataFrame, session_type: str) -> pd.DataFra
 
 
 def _render_position_chart(results: pd.DataFrame, session_type: str, race: str, year: int):
-    """Render a horizontal bar chart of finishing positions (race/sprint/quali only)."""
-    # Skip chart for practice/sprint quali sessions — no meaningful positions
+    """Render a horizontal bar chart of positions. Practice/Sprint Qualifying
+    sessions are ranked by best lap time (no official positions exist)."""
     if session_type in LAPS_NEEDED:
-        return
-
-    df = results.dropna(subset=["Position"]).copy()
-    df = df.sort_values("Position")
+        # Practice / Sprint Qualifying: rank by best lap time
+        df = results.dropna(subset=["BestLapTime"]).copy()
+        df = df.sort_values("BestLapTime").reset_index(drop=True)
+        df["Position"] = range(1, len(df) + 1)
+    else:
+        df = results.dropna(subset=["Position"]).copy()
+        df = df.sort_values("Position")
 
     fig, ax = plt.subplots(figsize=(10, 6))
     fig.patch.set_facecolor("#0f0f0f")
@@ -280,28 +283,29 @@ def render_results_tab():
     table = _build_results_table(results, r_session)
 
     # ── Summary metrics ───────────────────────────────────────────────────
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Drivers", len(results))
-
-    if r_session == "R" and "Status" in results.columns:
-        finishers = len(results[results["Status"] == "Finished"])
-        m2.metric("Finishers", finishers)
-        m3.metric("DNFs", len(results) - finishers)
+    if r_session == "R":
+        # Race: 4 boxes — Drivers, Finishers, DNFs, Best Mover
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Drivers", len(results))
+        if "Status" in results.columns:
+            finishers = len(results[results["Status"] == "Finished"])
+            m2.metric("Finishers", finishers)
+            m3.metric("DNFs", len(results) - finishers)
         if "GridPosition" in results.columns and "Position" in results.columns:
             best_mover = results.copy()
             best_mover["Gain"] = best_mover["GridPosition"] - best_mover["Position"]
             if len(best_mover) > 0:
                 mover = best_mover.loc[best_mover["Gain"].idxmax()]
                 m4.metric("Best Mover", f"{mover['FullName']}", f"+{int(mover['Gain'])} places")
-    elif r_session == "Sprint" and "Status" in results.columns:
-        finishers = len(results[results["Status"] == "Finished"])
-        m2.metric("Finishers", finishers)
-        m3.metric("DNFs", len(results) - finishers)
-        m4.metric("—", "—")
-    else:
-        m2.metric("—", "—")
-        m3.metric("—", "—")
-        m4.metric("—", "—")
+    elif r_session == "Sprint":
+        # Sprint: 3 boxes — Drivers, Finishers, DNFs
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Drivers", len(results))
+        if "Status" in results.columns:
+            finishers = len(results[results["Status"] == "Finished"])
+            m2.metric("Finishers", finishers)
+            m3.metric("DNFs", len(results) - finishers)
+    # FP1 / FP2 / FP3 / Qualifying / Sprint Qualifying: no metric boxes
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -320,4 +324,4 @@ def render_results_tab():
         return [f"background-color: {c}22"] * len(row)
 
     styled = table.style.apply(_color_team, axis=1)
-    st.dataframe(styled, use_container_width=True, hide_index=True, height=min(40 * len(table) + 40, 500))
+    st.dataframe(styled, use_container_width=True, hide_index=True, height=33 * (len(table) + 1) + 4)

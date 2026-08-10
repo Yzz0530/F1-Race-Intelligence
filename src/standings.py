@@ -250,7 +250,7 @@ def _render_standings_table(standings: pd.DataFrame, is_constructor: bool = Fals
 
     # Disable scroll via CSS override on the dataframe container
     st.markdown("<style>div[data-testid='stDataFrame'] div[role='gridcell'], div[data-testid='stDataFrame'] div[tabindex] { overflow: visible !important; max-height: none !important; } div[data-testid='stDataFrame'] { overflow: visible !important; }</style>", unsafe_allow_html=True)
-    st.dataframe(styled, use_container_width=True, hide_index=True, height=40 * (len(table) + 1))
+    st.dataframe(styled, use_container_width=True, hide_index=True, height=33 * (len(table) + 1) + 4)
 
 
 def render_standings_tab():
