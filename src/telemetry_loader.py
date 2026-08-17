@@ -23,46 +23,69 @@ _CACHE_DIR = os.path.join(_BASE, "cache")
 os.makedirs(_CACHE_DIR, exist_ok=True)
 fastf1.Cache.enable_cache(_CACHE_DIR)
 
-# Fastf1 short name → full race name for our app
-RACE_SHORT_NAMES: dict[str, str] = {
-    "Bahrain Grand Prix": "Bahrain",
-    "Saudi Arabian Grand Prix": "Jeddah",
-    "Australian Grand Prix": "Australia",
-    "Azerbaijan Grand Prix": "Azerbaijan",
-    "Barcelona Grand Prix": "Spain",
-    "Monaco Grand Prix": "Monaco",
-    "Canadian Grand Prix": "Canada",
-    "British Grand Prix": "Great Britain",
-    "Austrian Grand Prix": "Austria",
-    "Hungarian Grand Prix": "Hungary",
-    "Belgian Grand Prix": "Belgium",
-    "Dutch Grand Prix": "Netherlands",
-    "Italian Grand Prix": "Italy",
-    "Singapore Grand Prix": "Singapore",
-    "Japanese Grand Prix": "Japan",
-    "Qatar Grand Prix": "Qatar",
-    "United States Grand Prix": "USA",
-    "Mexico City Grand Prix": "Mexico",
-    "São Paulo Grand Prix": "Sao Paulo",
-    "Las Vegas Grand Prix": "Las Vegas",
-    "Abu Dhabi Grand Prix": "Abu Dhabi",
-    "Miami Grand Prix": "Miami",
-    "Emilia Romagna Grand Prix": "Emilia Romagna",
-    "Chinese Grand Prix": "China",
+# Legacy export — kept for backwards compatibility only.
+# Do NOT use for new code. resolve_session() resolves via the event schedule.
+RACE_SHORT_NAMES: dict[str, str] = {}
+
+# Cross-year event name aliases (dashboard track names → fastf1 EventName)
+_EVENT_ALIASES: dict[str, dict[int, str]] = {
+    "Barcelona Grand Prix": {2026: "Spanish Grand Prix"},
+    "Spanish Grand Prix":   {2025: "Barcelona Grand Prix"},
 }
+
+
+def _resolve_event_name(year: int, race_name: str) -> str | None:
+    """Match a dashboard track name to the correct fastf1 EventName for *year*.
+
+    Resolution order:
+    1. Exact match against the fastf1 event schedule (EventName column)
+    2. Alias lookup (e.g. 2026 "Barcelona Grand Prix" → "Spanish Grand Prix")
+    3. Partial / substring match on EventName and Location columns
+    """
+    try:
+        schedule = fastf1.get_event_schedule(year)
+    except Exception:
+        return None
+
+    valid = schedule[schedule["EventFormat"] != "testing"]
+    event_names = valid["EventName"].tolist()
+    locations = valid["Location"].tolist()
+
+    # 1. Exact EventName match
+    if race_name in event_names:
+        return race_name
+
+    # 2. Alias lookup
+    alias_for_year = _EVENT_ALIASES.get(race_name, {})
+    if year in alias_for_year:
+        candidate = alias_for_year[year]
+        if candidate in event_names:
+            return candidate
+
+    # 3. Fuzzy: match cleaned input against EventName or Location
+    clean = race_name.lower().replace(" grand prix", "").replace(" gp", "").strip()
+    for en, loc in zip(event_names, locations):
+        en_clean = en.lower().replace(" grand prix", "").replace(" gp", "").strip()
+        loc_clean = loc.lower().strip()
+        if (clean in en_clean or en_clean in clean
+                or clean in loc_clean or loc_clean in clean):
+            return en
+
+    return None
 
 
 def resolve_session(year: int, race_name: str) -> Any | None:
     """Resolve and load a race session from fastf1."""
-    short = RACE_SHORT_NAMES.get(race_name)
-    if short is None:
+    event_name = _resolve_event_name(year, race_name)
+    if event_name is None:
+        warnings.warn(f"telemetry_loader: no {year} event matched '{race_name}'")
         return None
     try:
-        session = fastf1.get_session(year, short, "R")
+        session = fastf1.get_session(year, event_name, "R")
         session.load(laps=True, telemetry=True, weather=True)
         return session
     except Exception as e:
-        print(f"  Failed to load {race_name} {year}: {e}")
+        warnings.warn(f"telemetry_loader: failed to load {event_name} {year}: {e}")
         return None
 
 

@@ -892,7 +892,7 @@ elif active_tab == "CAR TELEMETRY":
             from telemetry_loader import (
                 resolve_session, get_driver_lap_telemetry,
                 get_driver_sector_times, plot_telemetry_comparison,
-                plot_sector_comparison, get_session_weather, RACE_SHORT_NAMES,
+                plot_sector_comparison, get_session_weather,
             )
             session = resolve_session(telem_year, telem_track)
             if session is None:

@@ -5,6 +5,7 @@ Data source: fastf1 (live API) — computes points from race/sprint results.
 """
 from __future__ import annotations
 
+import os
 import warnings
 from typing import Any
 
@@ -15,6 +16,12 @@ import streamlit as st
 import matplotlib.pyplot as plt
 
 warnings.filterwarnings("ignore")
+
+_STANDINGS_CACHE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cache"
+)
+os.makedirs(_STANDINGS_CACHE, exist_ok=True)
+fastf1.Cache.enable_cache(_STANDINGS_CACHE)
 
 TEAM_COLORS: dict[str, str] = {
     "Red Bull Racing": "#3671c6", "Red Bull": "#3671c6",
@@ -40,13 +47,13 @@ def _team_color(team: str) -> str:
     return TEAM_COLORS.get(team, "#666666")
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
 def _get_schedule(year: int) -> pd.DataFrame:
     schedule = fastf1.get_event_schedule(year)
     return schedule[schedule["EventFormat"] != "testing"].copy()
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
 def _load_all_standings(year: int) -> pd.DataFrame:
     """Load all race/sprint results for a year and compute cumulative standings."""
     schedule = _get_schedule(year)
@@ -76,7 +83,8 @@ def _load_all_standings(year: int) -> pd.DataFrame:
                     "Points": pts,
                     "Status": row.get("Status", ""),
                 })
-        except Exception:
+        except Exception as e:
+            warnings.warn(f"Standings: failed to load Race {race_name} ({year}): {e}")
             pass
 
         # ── Sprint race results ───────────────────────────────────────────
@@ -100,7 +108,8 @@ def _load_all_standings(year: int) -> pd.DataFrame:
                         "Points": pts,
                         "Status": row.get("Status", ""),
                     })
-            except Exception:
+            except Exception as e:
+                warnings.warn(f"Standings: failed to load Sprint {race_name} ({year}): {e}")
                 pass
 
     if not all_records:
@@ -271,7 +280,11 @@ def render_standings_tab():
         raw = _load_all_standings(s_year)
 
     if raw.empty:
-        st.info(f"No {s_year} race data available yet.")
+        st.warning(
+            f"No {s_year} race data available yet — "
+            "either no races have been held, or the fastf1 API rate limit was hit. "
+            "Try again in a few minutes."
+        )
         return
 
     # ── Summary metrics ───────────────────────────────────────────────────

@@ -6,6 +6,7 @@ Data source: fastf1 (live API)
 """
 from __future__ import annotations
 
+import os
 import warnings
 from typing import Any
 
@@ -16,6 +17,12 @@ import streamlit as st
 import matplotlib.pyplot as plt
 
 warnings.filterwarnings("ignore")
+
+_RESULTS_CACHE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cache"
+)
+os.makedirs(_RESULTS_CACHE, exist_ok=True)
+fastf1.Cache.enable_cache(_RESULTS_CACHE)
 
 TEAM_COLORS: dict[str, str] = {
     "Red Bull Racing": "#3671c6", "Red Bull": "#3671c6",
@@ -106,7 +113,8 @@ def _load_session_results(year: int, race: str, session_type: str) -> pd.DataFra
         else:
             session.load(laps=False, telemetry=False)
             return session.results.copy()
-    except Exception:
+    except Exception as e:
+        warnings.warn(f"Failed to load {race} {session_type} ({year}): {e}")
         return None
 
 
@@ -210,7 +218,7 @@ def _render_position_chart(results: pd.DataFrame, session_type: str, race: str, 
 def render_results_tab():
     """Render the race results tab."""
     # ── Get available sessions for selected year+race ─────────────────────
-    @st.cache_data(ttl=300, show_spinner=False)
+    @st.cache_data(ttl=3600, show_spinner=False)
     def _get_available_sessions(year: int, race: str) -> list[str]:
         available = []
         for stype in SESSION_TYPES:
@@ -219,15 +227,15 @@ def render_results_tab():
                 session.load(laps=False, telemetry=False)
                 if session.results is not None and len(session.results) > 0:
                     available.append(stype)
-            except Exception:
+            except Exception as e:
                 pass
         return available
 
-    @st.cache_data(ttl=300, show_spinner=False)
+    @st.cache_data(ttl=3600, show_spinner=False)
     def _get_results(year: int, race: str, session_type: str) -> pd.DataFrame | None:
         return _load_session_results(year, race, session_type)
 
-    @st.cache_data(ttl=300, show_spinner=False)
+    @st.cache_data(ttl=3600, show_spinner=False)
     def _get_schedule(year: int) -> list[str]:
         schedule = fastf1.get_event_schedule(year)
         schedule = schedule[schedule["EventFormat"] != "testing"]
@@ -277,7 +285,11 @@ def render_results_tab():
         results = _get_results(r_year, r_track, r_session)
 
     if results is None or results.empty:
-        st.info(f"No results available for {SESSION_DISPLAY.get(r_session, r_session)}.")
+        st.warning(
+            f"No results available for **{r_track} — {SESSION_DISPLAY.get(r_session, r_session)}** ({r_year}). "
+            "The session may not have been held yet, or the fastf1 API rate limit was hit — "
+            "try again in a few minutes."
+        )
         return
 
     table = _build_results_table(results, r_session)
