@@ -87,6 +87,30 @@ def _fmt_gap(time_val, pole_time) -> str:
     return f"{sign}{diff:.3f}s"
 
 
+def _safe_gap(time_val, leader_time) -> str:
+    """Gap to leader, but only when both are plausible full-session times.
+
+    FastF1's Sprint 'Time' field is unreliable: only the winner carries a real
+    cumulative race time (~25+ min); everyone else gets a garbage sub-minute value.
+    Computing a gap from those yields nonsense (e.g. -1597s), so fall back to a
+    blank gap unless both times are valid full-race durations (>60s)."""
+    if pd.isna(time_val) or pd.isna(leader_time):
+        return "—"
+    try:
+        tv = time_val.total_seconds()
+        lt = leader_time.total_seconds()
+    except AttributeError:
+        return "—"
+    if tv <= 60 or lt <= 60:
+        # Unreliable data — don't show a misleading number
+        return "" if tv > 0 else "—"
+    diff = tv - lt
+    if diff == 0:
+        return "Pole"
+    sign = "+" if diff > 0 else ""
+    return f"{sign}{diff:.3f}s"
+
+
 def _load_session_results(year: int, race: str, session_type: str) -> pd.DataFrame | None:
     """Load session results from fastf1. For FP/Sprint Quali, loads laps and
     computes best lap times per driver (these sessions have no position data)."""
@@ -162,7 +186,7 @@ def _build_results_table(results: pd.DataFrame, session_type: str) -> pd.DataFra
             table["Points"] = results["Points"].astype(int)
             table["Status"] = results["Status"]
             leader_time = results["Time"].iloc[0] if len(results) > 0 else None
-            table["Gap"] = results["Time"].apply(lambda x: _fmt_gap(x, leader_time))
+            table["Gap"] = results["Time"].apply(lambda x: _safe_gap(x, leader_time))
 
         table = table.sort_values("Pos").reset_index(drop=True)
 
@@ -218,22 +242,70 @@ def _render_position_chart(results: pd.DataFrame, session_type: str, race: str, 
 def render_results_tab():
     """Render the race results tab."""
     # ── Get available sessions for selected year+race ─────────────────────
+    # Derive from the event schedule (single cached fetch via _get_schedule)
+    # instead of downloading all 7 sessions. FastF1's Session1..Session5
+    # columns already list which sessions a weekend actually has.
+    SESSION_NAME_TO_KEY = {
+        "Practice 1": "FP1", "Practice 2": "FP2", "Practice 3": "FP3",
+        "Qualifying": "Q", "Sprint Qualifying": "Sprint Qualifying",
+        "Sprint": "Sprint", "Race": "R",
+    }
+
     @st.cache_data(ttl=3600, show_spinner=False)
     def _get_available_sessions(year: int, race: str) -> list[str]:
-        available = []
-        for stype in SESSION_TYPES:
-            try:
-                session = fastf1.get_session(year, race, stype)
-                session.load(laps=False, telemetry=False)
-                if session.results is not None and len(session.results) > 0:
-                    available.append(stype)
-            except Exception as e:
-                pass
-        return available
+        schedule = _get_schedule(year)
+        if race not in schedule:
+            return []
+        try:
+            event = fastf1.get_event(year, race)
+        except Exception:
+            return []
+        present = []
+        for i in range(1, 6):
+            sname = event.get(f"Session{i}")
+            if not sname:
+                continue
+            key = SESSION_NAME_TO_KEY.get(sname)
+            if key and key in SESSION_TYPES:
+                present.append(key)
+        # Preserve canonical order
+        return [s for s in SESSION_TYPES if s in present]
+
+    _RESULTS_CSV = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "data", "race_results.csv",
+    )
 
     @st.cache_data(ttl=3600, show_spinner=False)
     def _get_results(year: int, race: str, session_type: str) -> pd.DataFrame | None:
+        # 1) Try the pre-fetched results CSV (instant, works on Cloud too)
+        df = _read_results_csv(year, race, session_type)
+        if df is not None and not df.empty:
+            return df
+        # 2) Fallback to live fastf1 (future races not yet in the CSV)
         return _load_session_results(year, race, session_type)
+
+    @st.cache_data(ttl=3600, show_spinner=False)
+    def _read_results_csv(year: int, race: str, session_type: str) -> pd.DataFrame | None:
+        if not os.path.exists(_RESULTS_CSV):
+            return None
+        try:
+            csv = pd.read_csv(_RESULTS_CSV)
+        except Exception:
+            return None
+        sub = csv[(csv["Year"] == year) & (csv["Race"] == race) & (csv["Session"] == session_type)]
+        if sub.empty:
+            return None
+        # Reconstruct the same column shapes _build_results_table expects
+        out = sub.copy()
+        for col in ("Position", "GridPosition", "Points", "Laps"):
+            if col in out.columns:
+                out[col] = pd.to_numeric(out[col], errors="coerce")
+        # Parse timedelta-like strings back to timedelta for _fmt_gap/_fmt_time
+        for col in ("Time", "BestLapTime", "Q1", "Q2", "Q3"):
+            if col in out.columns:
+                out[col] = pd.to_timedelta(out[col].replace("", pd.NA), errors="coerce")
+        return out
 
     @st.cache_data(ttl=3600, show_spinner=False)
     def _get_schedule(year: int) -> list[str]:
