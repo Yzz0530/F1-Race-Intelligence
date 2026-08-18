@@ -39,6 +39,10 @@ jobs:
         run: |
           python src/prepare_enhanced_data.py
           
+      - name: Build / top-up race results CSV (instant RESULTS tab)
+        run: |
+          python scripts/build_race_results_csv.py
+          
       - name: Train XGBoost model
         run: |
           python src/train.py
@@ -47,6 +51,6 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add data/ models/
+          git add data/ models/ data/race_results.csv
           git diff --staged --quiet || git commit -m "chore: auto-update F1 data + retrained model [skip ci]"
           git push
