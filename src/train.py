@@ -22,7 +22,17 @@ MODEL_DIR: str = os.path.join(BASE, "models")
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 log.info("Loading data...")
-df: pd.DataFrame = pd.read_csv(os.path.join(DATA_DIR, "all_races_master.csv"))
+_master = os.path.join(DATA_DIR, "all_races_master.csv")
+if os.path.exists(_master):
+    df: pd.DataFrame = pd.read_csv(_master)
+else:
+    # Fallback: combine any per-year all_races_*.csv the download step produced
+    parts = [pd.read_csv(os.path.join(DATA_DIR, f))
+             for f in os.listdir(DATA_DIR)
+             if f.startswith("all_races_") and f.endswith(".csv") and "master" not in f]
+    if not parts:
+        raise FileNotFoundError("No all_races_*.csv found in data/ — run download_all_races.py first")
+    df = pd.concat(parts, ignore_index=True)
 log.info(f"Raw shape: {df.shape}, races: {df['Race'].nunique()}, drivers: {df['Driver'].nunique()}")
 
 # --- Feature engineering ---
