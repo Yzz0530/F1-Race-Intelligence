@@ -119,7 +119,13 @@ def _load_all_standings(year: int) -> pd.DataFrame:
 
 
 def _compute_driver_standings(df: pd.DataFrame) -> pd.DataFrame:
-    """Compute driver standings with cumulative points per race."""
+    """Compute driver standings with cumulative points per race.
+
+    Grouped by DRIVER only (not Driver+Team): a driver who changes teams
+    mid-season (e.g. Lawson Red Bull -> Racing Bulls) must appear as ONE entry,
+    with all their points summed. The display team is the driver's most recent
+    race team.
+    """
     if df.empty:
         return pd.DataFrame()
 
@@ -129,17 +135,14 @@ def _compute_driver_standings(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df["RaceIdx"] = df["Race"].map(race_idx)
 
-    # Pivot: one row per driver, one column per race (points earned)
-    driver_totals = df.groupby(["Driver", "Team"]).agg(
-        TotalPoints=("Points", "sum"),
-        Wins=("Position", lambda x: (x == 1).sum()),
-        Podiums=("Position", lambda x: (x <= 3).sum()),
-        Poles=("Position", "count"),  # placeholder, actual poles from qualifying
-    ).reset_index()
+    # Most recent team per driver (last race they entered)
+    last_team = (
+        df.sort_values("RaceIdx").groupby("Driver").tail(1).set_index("Driver")["Team"]
+    )
 
-    # Cumulative points progression
+    # Cumulative points progression, indexed by Driver ONLY
     progression = df.pivot_table(
-        index=["Driver", "Team"], columns="Race", values="Points", aggfunc="sum"
+        index="Driver", columns="Race", values="Points", aggfunc="sum"
     ).fillna(0)
 
     # Reorder columns by race order
@@ -147,10 +150,11 @@ def _compute_driver_standings(df: pd.DataFrame) -> pd.DataFrame:
     progression = progression[ordered]
     progression = progression.cumsum(axis=1)
 
-    # Add total — last value of cumulative sum IS the total
-    progression["Total"] = progression[ordered].iloc[:, -1] if ordered else 0
-    # For drivers who raced fewer races, recalculate properly
-    progression["Total"] = df.groupby(["Driver", "Team"])["Points"].sum().values
+    # Total = sum of all points for the driver
+    progression["Total"] = df.groupby("Driver")["Points"].sum().values
+
+    # Display team = most recent
+    progression["Team"] = progression.index.map(last_team)
 
     # Sort by total
     progression = progression.sort_values("Total", ascending=False).reset_index()
