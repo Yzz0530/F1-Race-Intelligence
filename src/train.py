@@ -22,17 +22,14 @@ MODEL_DIR: str = os.path.join(BASE, "models")
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 log.info("Loading data...")
-_master = os.path.join(DATA_DIR, "all_races_master.csv")
-if os.path.exists(_master):
-    df: pd.DataFrame = pd.read_csv(_master)
-else:
-    # Fallback: combine any per-year all_races_*.csv the download step produced
-    parts = [pd.read_csv(os.path.join(DATA_DIR, f))
-             for f in os.listdir(DATA_DIR)
-             if f.startswith("all_races_") and f.endswith(".csv") and "master" not in f]
-    if not parts:
-        raise FileNotFoundError("No all_races_*.csv found in data/ — run download_all_races.py first")
-    df = pd.concat(parts, ignore_index=True)
+master_path: str = os.path.join(DATA_DIR, "all_races_master.csv")
+if not os.path.exists(master_path):
+    raise FileNotFoundError(
+        "all_races_master.csv not found in data/. The 'Prepare features' step "
+        "(prepare_enhanced_data.py) must run before training and produce it from "
+        "the downloaded all_races_*.csv files."
+    )
+df: pd.DataFrame = pd.read_csv(master_path)
 log.info(f"Raw shape: {df.shape}, races: {df['Race'].nunique()}, drivers: {df['Driver'].nunique()}")
 
 # --- Feature engineering ---
