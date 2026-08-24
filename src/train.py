@@ -73,6 +73,14 @@ FEATURES: list[str] = [
 ] + misc + sectors + weather + circuit
 N_FEATURES: int = len(FEATURES)
 
+# Weather (and any other) columns are supplementary — they may be absent when the
+# weather fetch is rate-limited (common on a fresh CI cache). Backfill missing
+# features with neutral zeros instead of crashing on dropna.
+_missing_feats = [c for c in FEATURES if c not in df.columns]
+if _missing_feats:
+    log.warning(f"Missing feature columns (backfilled with 0): {_missing_feats}")
+    for c in _missing_feats:
+        df[c] = 0
 log.info(f"Features ({N_FEATURES}): {FEATURES}")
 
 # Drop NaN
