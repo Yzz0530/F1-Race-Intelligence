@@ -53,9 +53,72 @@ def _get_schedule(year: int) -> pd.DataFrame:
     return schedule[schedule["EventFormat"] != "testing"].copy()
 
 
+_RESULTS_CSV = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "race_results.csv"
+)
+
+
+def _standings_from_csv(year: int) -> pd.DataFrame | None:
+    """Instant standings source: read pre-fetched race_results.csv (R + Sprint).
+
+    Survives Streamlit Cloud reboots (it's committed) so the Standings tab loads
+    in <1s instead of re-fetching every race from fastf1 on a cold cache.
+    """
+    if not os.path.exists(_RESULTS_CSV):
+        return None
+    try:
+        csv = pd.read_csv(_RESULTS_CSV)
+    except Exception:
+        return None
+    sub = csv[(csv["Year"] == year) & (csv["Session"].isin(["R", "Sprint"]))]
+    if sub.empty:
+        return None
+    records = []
+    for _, row in sub.iterrows():
+        pos = row.get("Position")
+        if pd.isna(pos):
+            continue
+        pos = int(pos)
+        sess = row.get("Session")
+        pts = RACE_POINTS.get(pos, 0) if sess == "R" else SPRINT_POINTS.get(pos, 0)
+        records.append({
+            "Race": row.get("Race", ""),
+            "Session": sess,
+            "Driver": row.get("FullName", ""),
+            "Team": row.get("TeamName", ""),
+            "Position": pos,
+            "Points": pts,
+            "Status": row.get("Status", ""),
+        })
+    return pd.DataFrame(records) if records else None
+
+
+def _csv_covers_completed(csv_df: pd.DataFrame, year: int) -> bool:
+    """True if the CSV already contains every race weekend that has been run."""
+    try:
+        schedule = _get_schedule(year)
+    except Exception:
+        return False
+    now = pd.Timestamp.now().tz_localize(None)
+    date_col = ("Session5DateUtc" if "Session5DateUtc" in schedule
+                else ("EventDate" if "EventDate" in schedule else None))
+    completed = schedule[schedule[date_col] < now] if date_col else schedule
+    return set(completed["EventName"]).issubset(set(csv_df["Race"].unique()))
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def _load_all_standings(year: int) -> pd.DataFrame:
-    """Load all race/sprint results for a year and compute cumulative standings."""
+    """Load all race/sprint results for a year and compute cumulative standings.
+
+    Fast path: use the pre-fetched race_results.csv (instant, works on Cloud).
+    Falls back to live fastf1 only when the CSV is missing a race that has
+    already happened (e.g. within the same weekend, before the Monday auto-update
+    top-up).
+    """
+    csv_df = _standings_from_csv(year)
+    if csv_df is not None and not csv_df.empty and _csv_covers_completed(csv_df, year):
+        return csv_df
+
     schedule = _get_schedule(year)
     all_records = []
 
