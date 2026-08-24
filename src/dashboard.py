@@ -38,6 +38,7 @@ TEAMS: dict[str, tuple[str, str]] = {
     "GAS": ("#00a1e8", "Alpine"), "COL": ("#00a1e8", "Alpine"),
     "OCO": ("#dee1e2", "Haas"), "BEA": ("#dee1e2", "Haas"),
     "LAW": ("#6692ff", "Racing Bulls"), "LIN": ("#6692ff", "Racing Bulls"),
+    "TSU": ("#6692ff", "Racing Bulls"),
     "ALB": ("#1868db", "Williams"), "SAI": ("#1868db", "Williams"),
     "HUL": ("#ff2d00", "Audi"), "BOR": ("#ff2d00", "Audi"),
     "PER": ("#aaaaad", "Cadillac"), "BOT": ("#aaaaad", "Cadillac"),
