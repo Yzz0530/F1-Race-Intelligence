@@ -3663,3 +3663,47 @@ Year,Race,Session,DriverNumber,FullName,TeamName,Position,GridPosition,Status,Ti
 2026,Dutch Grand Prix,R,18,Lance Stroll,Aston Martin,20.0,19.0,Retired,,0.0,,,,,
 2026,Dutch Grand Prix,R,87,Oliver Bearman,Haas F1 Team,21.0,20.0,Retired,,0.0,,,,,
 2026,Dutch Grand Prix,R,3,Max Verstappen,Red Bull,22.0,7.0,Retired,,0.0,,,,,
+2026,Dutch Grand Prix,FP1,12,Kimi Antonelli,Mercedes,1.0,,,,,,,,0 days 00:01:12.949000,36.0
+2026,Dutch Grand Prix,FP1,1,Lando Norris,McLaren,2.0,,,,,,,,0 days 00:01:13.070000,30.0
+2026,Dutch Grand Prix,FP1,63,George Russell,Mercedes,3.0,,,,,,,,0 days 00:01:13.074000,37.0
+2026,Dutch Grand Prix,FP1,44,Lewis Hamilton,Ferrari,4.0,,,,,,,,0 days 00:01:13.139000,34.0
+2026,Dutch Grand Prix,FP1,16,Charles Leclerc,Ferrari,5.0,,,,,,,,0 days 00:01:13.238000,39.0
+2026,Dutch Grand Prix,FP1,81,Oscar Piastri,McLaren,6.0,,,,,,,,0 days 00:01:13.608000,35.0
+2026,Dutch Grand Prix,FP1,27,Nico Hulkenberg,Audi,7.0,,,,,,,,0 days 00:01:13.784000,34.0
+2026,Dutch Grand Prix,FP1,10,Pierre Gasly,Alpine,8.0,,,,,,,,0 days 00:01:13.911000,28.0
+2026,Dutch Grand Prix,FP1,5,Gabriel Bortoleto,Audi,9.0,,,,,,,,0 days 00:01:13.992000,29.0
+2026,Dutch Grand Prix,FP1,41,Arvid Lindblad,Racing Bulls,10.0,,,,,,,,0 days 00:01:14.285000,37.0
+2026,Dutch Grand Prix,FP1,3,Max Verstappen,Red Bull Racing,11.0,,,,,,,,0 days 00:01:14.325000,25.0
+2026,Dutch Grand Prix,FP1,14,Fernando Alonso,Aston Martin,12.0,,,,,,,,0 days 00:01:14.511000,25.0
+2026,Dutch Grand Prix,FP1,43,Franco Colapinto,Alpine,13.0,,,,,,,,0 days 00:01:14.826000,31.0
+2026,Dutch Grand Prix,FP1,30,Liam Lawson,Red Bull Racing,14.0,,,,,,,,0 days 00:01:14.861000,30.0
+2026,Dutch Grand Prix,FP1,87,Oliver Bearman,Haas F1 Team,15.0,,,,,,,,0 days 00:01:14.874000,32.0
+2026,Dutch Grand Prix,FP1,31,Esteban Ocon,Haas F1 Team,16.0,,,,,,,,0 days 00:01:14.897000,31.0
+2026,Dutch Grand Prix,FP1,22,Yuki Tsunoda,Racing Bulls,17.0,,,,,,,,0 days 00:01:15.110000,35.0
+2026,Dutch Grand Prix,FP1,18,Lance Stroll,Aston Martin,18.0,,,,,,,,0 days 00:01:15.199000,24.0
+2026,Dutch Grand Prix,FP1,23,Alexander Albon,Williams,19.0,,,,,,,,0 days 00:01:15.357000,33.0
+2026,Dutch Grand Prix,FP1,77,Valtteri Bottas,Cadillac,20.0,,,,,,,,0 days 00:01:15.580000,28.0
+2026,Dutch Grand Prix,FP1,11,Sergio Perez,Cadillac,21.0,,,,,,,,0 days 00:01:15.700000,28.0
+2026,Dutch Grand Prix,FP1,55,Carlos Sainz,Williams,22.0,,,,,,,,0 days 00:01:16.345000,32.0
+2026,Dutch Grand Prix,Sprint Qualifying,63,George Russell,Mercedes,1.0,,,,,,,,0 days 00:01:11.567000,17.0
+2026,Dutch Grand Prix,Sprint Qualifying,1,Lando Norris,McLaren,2.0,,,,,,,,0 days 00:01:11.608000,15.0
+2026,Dutch Grand Prix,Sprint Qualifying,16,Charles Leclerc,Ferrari,3.0,,,,,,,,0 days 00:01:11.622000,16.0
+2026,Dutch Grand Prix,Sprint Qualifying,81,Oscar Piastri,McLaren,4.0,,,,,,,,0 days 00:01:11.666000,15.0
+2026,Dutch Grand Prix,Sprint Qualifying,12,Kimi Antonelli,Mercedes,5.0,,,,,,,,0 days 00:01:11.794000,15.0
+2026,Dutch Grand Prix,Sprint Qualifying,3,Max Verstappen,Red Bull Racing,6.0,,,,,,,,0 days 00:01:12.094000,15.0
+2026,Dutch Grand Prix,Sprint Qualifying,44,Lewis Hamilton,Ferrari,7.0,,,,,,,,0 days 00:01:12.191000,15.0
+2026,Dutch Grand Prix,Sprint Qualifying,10,Pierre Gasly,Alpine,8.0,,,,,,,,0 days 00:01:12.578000,12.0
+2026,Dutch Grand Prix,Sprint Qualifying,5,Gabriel Bortoleto,Audi,9.0,,,,,,,,0 days 00:01:12.583000,12.0
+2026,Dutch Grand Prix,Sprint Qualifying,41,Arvid Lindblad,Racing Bulls,10.0,,,,,,,,0 days 00:01:12.737000,15.0
+2026,Dutch Grand Prix,Sprint Qualifying,30,Liam Lawson,Red Bull Racing,11.0,,,,,,,,0 days 00:01:13.136000,13.0
+2026,Dutch Grand Prix,Sprint Qualifying,22,Yuki Tsunoda,Racing Bulls,12.0,,,,,,,,0 days 00:01:13.145000,11.0
+2026,Dutch Grand Prix,Sprint Qualifying,43,Franco Colapinto,Alpine,13.0,,,,,,,,0 days 00:01:13.439000,9.0
+2026,Dutch Grand Prix,Sprint Qualifying,27,Nico Hulkenberg,Audi,14.0,,,,,,,,0 days 00:01:13.616000,13.0
+2026,Dutch Grand Prix,Sprint Qualifying,31,Esteban Ocon,Haas F1 Team,15.0,,,,,,,,0 days 00:01:13.893000,12.0
+2026,Dutch Grand Prix,Sprint Qualifying,23,Alexander Albon,Williams,16.0,,,,,,,,0 days 00:01:14.294000,12.0
+2026,Dutch Grand Prix,Sprint Qualifying,87,Oliver Bearman,Haas F1 Team,17.0,,,,,,,,0 days 00:01:14.728000,6.0
+2026,Dutch Grand Prix,Sprint Qualifying,55,Carlos Sainz,Williams,18.0,,,,,,,,0 days 00:01:14.738000,7.0
+2026,Dutch Grand Prix,Sprint Qualifying,18,Lance Stroll,Aston Martin,19.0,,,,,,,,0 days 00:01:15.391000,5.0
+2026,Dutch Grand Prix,Sprint Qualifying,77,Valtteri Bottas,Cadillac,20.0,,,,,,,,0 days 00:01:15.472000,7.0
+2026,Dutch Grand Prix,Sprint Qualifying,11,Sergio Perez,Cadillac,21.0,,,,,,,,0 days 00:01:15.545000,7.0
+2026,Dutch Grand Prix,Sprint Qualifying,14,Fernando Alonso,Aston Martin,22.0,,,,,,,,0 days 00:01:16.014000,5.0
