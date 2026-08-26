@@ -169,7 +169,7 @@ def _build_results_table(results: pd.DataFrame, session_type: str) -> pd.DataFra
         table["No"] = df["DriverNumber"]
         table["Team"] = df["TeamName"]
         table["Best Lap"] = df["BestLapTime"].apply(_fmt_time) if "BestLapTime" in df.columns else "—"
-        table["Laps"] = df["Laps"] if "Laps" in df.columns else 0
+        table["Laps"] = df["Laps"].apply(lambda x: int(x) if pd.notna(x) else 0)
         table["Gap"] = ""
         if "BestLapTime" in df.columns and len(df) > 0:
             best = df["BestLapTime"].iloc[0]
@@ -305,7 +305,7 @@ def render_results_tab():
     # Bump this whenever results.py logic changes, to force-clear the Streamlit
     # cache on next load (code changes alone don't change the CSV mtime, so the
     # mtime key wouldn't otherwise invalidate a stale cached result on Cloud).
-    RESULTS_CACHE_VERSION = 2
+    RESULTS_CACHE_VERSION = 3
 
     @st.cache_data(ttl=3600, show_spinner=False)
     def _get_results(year: int, race: str, session_type: str, _mtime: float = 0.0, _ver: int = RESULTS_CACHE_VERSION) -> pd.DataFrame | None:
@@ -404,7 +404,10 @@ def render_results_tab():
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Drivers", len(results))
         if "Status" in results.columns:
-            finishers = len(results[results["Status"] == "Finished"])
+            # A finisher is anyone who completed the race: Finished OR Lapped.
+            # DNF = Retired / Did not start / Disqualified / anything else.
+            finished = results["Status"].isin(["Finished", "Lapped"])
+            finishers = int(finished.sum())
             m2.metric("Finishers", finishers)
             m3.metric("DNFs", len(results) - finishers)
         if "GridPosition" in results.columns and "Position" in results.columns:
@@ -418,7 +421,8 @@ def render_results_tab():
         m1, m2, m3 = st.columns(3)
         m1.metric("Drivers", len(results))
         if "Status" in results.columns:
-            finishers = len(results[results["Status"] == "Finished"])
+            finished = results["Status"].isin(["Finished", "Lapped"])
+            finishers = int(finished.sum())
             m2.metric("Finishers", finishers)
             m3.metric("DNFs", len(results) - finishers)
     # FP1 / FP2 / FP3 / Qualifying / Sprint Qualifying: no metric boxes
