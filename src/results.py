@@ -82,7 +82,7 @@ def _norm_status(status: str) -> str:
     if not status or (hasattr(status, "isna") and status.isna()):
         return status
     s = str(status).strip()
-    return {"Retired": "DNF", "Did not start": "DNS"}.get(s, s)
+    return {"Retired": "DNF", "Did not start": "DNS", "Disqualified": "DSQ"}.get(s, s)
 
 
 def _fmt_time(td) -> str:
@@ -316,7 +316,7 @@ def render_results_tab():
     # Bump this whenever results.py logic changes, to force-clear the Streamlit
     # cache on next load (code changes alone don't change the CSV mtime, so the
     # mtime key wouldn't otherwise invalidate a stale cached result on Cloud).
-    RESULTS_CACHE_VERSION = 4
+    RESULTS_CACHE_VERSION = 5
 
     @st.cache_data(ttl=3600, show_spinner=False)
     def _get_results(year: int, race: str, session_type: str, _mtime: float = 0.0, _ver: int = RESULTS_CACHE_VERSION) -> pd.DataFrame | None:
