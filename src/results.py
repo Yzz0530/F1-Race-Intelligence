@@ -59,6 +59,21 @@ def _team_color(team: str) -> str:
     return TEAM_COLORS.get(team, "#666666")
 
 
+def _norm_driver_name(full_name: str) -> str:
+    """Normalize driver display names for consistency across the app.
+
+    fastf1 sometimes stores the same driver under different FullName strings
+    (e.g. 'Andrea Kimi Antonelli' vs 'Kimi Antonelli'). Collapse known variants
+    to a single canonical display name so tables/charts never differ.
+    """
+    if not full_name:
+        return full_name
+    name = str(full_name).strip()
+    if name in ("Andrea Kimi Antonelli", "Andrea Antonelli"):
+        return "Kimi Antonelli"
+    return name
+
+
 def _fmt_time(td) -> str:
     """Format a timedelta to a readable lap time string."""
     if pd.isna(td) or td is None:
@@ -150,7 +165,7 @@ def _build_results_table(results: pd.DataFrame, session_type: str) -> pd.DataFra
         # Practice/Sprint Quali sessions: sorted by best lap time, no position
         df = results.copy()
         table["Rank"] = range(1, len(df) + 1)
-        table["Driver"] = df["FullName"]
+        table["Driver"] = df["FullName"].apply(_norm_driver_name)
         table["No"] = df["DriverNumber"]
         table["Team"] = df["TeamName"]
         table["Best Lap"] = df["BestLapTime"].apply(_fmt_time) if "BestLapTime" in df.columns else "—"
@@ -163,7 +178,7 @@ def _build_results_table(results: pd.DataFrame, session_type: str) -> pd.DataFra
     else:
         # Race/Sprint/Qualifying sessions: use Position
         table["Pos"] = results["Position"].astype("Int64")
-        table["Driver"] = results["FullName"]
+        table["Driver"] = results["FullName"].apply(_norm_driver_name)
         table["No"] = results["DriverNumber"]
         table["Team"] = results["TeamName"]
 
@@ -216,7 +231,7 @@ def _render_position_chart(results: pd.DataFrame, session_type: str, race: str, 
     bars = ax.barh(y_pos, [1] * len(df), color=colors, height=0.7, alpha=0.85)
 
     ax.set_yticks(y_pos)
-    ax.set_yticklabels(df["FullName"], color="#eeeeee", fontsize=9)
+    ax.set_yticklabels(df["FullName"].apply(_norm_driver_name), color="#eeeeee", fontsize=9)
     ax.invert_yaxis()
     ax.set_xlabel("")
     ax.set_xlim(0, 1.2)
@@ -391,7 +406,7 @@ def render_results_tab():
             best_mover["Gain"] = best_mover["GridPosition"] - best_mover["Position"]
             if len(best_mover) > 0:
                 mover = best_mover.loc[best_mover["Gain"].idxmax()]
-                m4.metric("Best Mover", f"{mover['FullName']}", f"+{int(mover['Gain'])} places")
+                m4.metric("Best Mover", f"{_norm_driver_name(mover['FullName'])}", f"+{int(mover['Gain'])} places")
     elif r_session == "Sprint":
         # Sprint: 3 boxes — Drivers, Finishers, DNFs
         m1, m2, m3 = st.columns(3)

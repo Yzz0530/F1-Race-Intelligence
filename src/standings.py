@@ -17,6 +17,23 @@ import matplotlib.pyplot as plt
 
 warnings.filterwarnings("ignore")
 
+
+def _norm_driver_name(full_name: str) -> str:
+    """Normalize driver display names for consistency across the app.
+
+    fastf1 sometimes stores the same driver under different FullName strings
+    (e.g. 'Andrea Kimi Antonelli' vs 'Kimi Antonelli'). Collapse known variants
+    to a single canonical display name so standings/tables never split or differ.
+    """
+    if not full_name:
+        return full_name
+    name = str(full_name).strip()
+    # Andrea Kimi Antonelli -> Kimi Antonelli (keep the familiar racing name)
+    if name in ("Andrea Kimi Antonelli", "Andrea Antonelli"):
+        return "Kimi Antonelli"
+    return name
+
+
 _STANDINGS_CACHE = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cache"
 )
@@ -84,7 +101,7 @@ def _standings_from_csv(year: int) -> pd.DataFrame | None:
         records.append({
             "Race": row.get("Race", ""),
             "Session": sess,
-            "Driver": row.get("FullName", ""),
+            "Driver": _norm_driver_name(row.get("FullName", "")),
             "Team": row.get("TeamName", ""),
             "Position": pos,
             "Points": pts,
@@ -140,7 +157,7 @@ def _load_all_standings(year: int) -> pd.DataFrame:
                 all_records.append({
                     "Race": race_name,
                     "Session": "Race",
-                    "Driver": row.get("FullName", ""),
+                    "Driver": _norm_driver_name(row.get("FullName", "")),
                     "Team": row.get("TeamName", ""),
                     "Position": pos,
                     "Points": pts,
@@ -165,7 +182,7 @@ def _load_all_standings(year: int) -> pd.DataFrame:
                     all_records.append({
                         "Race": race_name,
                         "Session": "Sprint",
-                        "Driver": row.get("FullName", ""),
+                        "Driver": _norm_driver_name(row.get("FullName", "")),
                         "Team": row.get("TeamName", ""),
                         "Position": pos,
                         "Points": pts,
