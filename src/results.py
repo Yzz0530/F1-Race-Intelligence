@@ -205,14 +205,24 @@ def _build_results_table(results: pd.DataFrame, session_type: str) -> pd.DataFra
             table["Points"] = results["Points"].astype(int)
             table["Status"] = results["Status"].apply(_norm_status)
             leader_time = results["Time"].iloc[0] if len(results) > 0 else None
-            table["Gap"] = results["Time"].apply(lambda x: _fmt_gap(x, leader_time))
+            # Gap only makes sense for drivers who completed the race.
+            # Non-finishers (DNF/DNS/DSQ) get their status instead of a bogus gap.
+            finished_mask = results["Status"].isin(["Finished", "Lapped"])
+            table["Gap"] = [
+                _fmt_gap(t, leader_time) if fin else _norm_status(st)
+                for t, fin, st in zip(results["Time"], finished_mask, results["Status"])
+            ]
 
         elif session_type == "Sprint":
             table["Grid"] = results["GridPosition"].astype("Int64") if "GridPosition" in results.columns else "—"
             table["Points"] = results["Points"].astype(int)
             table["Status"] = results["Status"].apply(_norm_status)
             leader_time = results["Time"].iloc[0] if len(results) > 0 else None
-            table["Gap"] = results["Time"].apply(lambda x: _safe_gap(x, leader_time))
+            finished_mask = results["Status"].isin(["Finished", "Lapped"])
+            table["Gap"] = [
+                _safe_gap(t, leader_time) if fin else _norm_status(st)
+                for t, fin, st in zip(results["Time"], finished_mask, results["Status"])
+            ]
 
         table = table.sort_values("Pos").reset_index(drop=True)
 
@@ -316,7 +326,7 @@ def render_results_tab():
     # Bump this whenever results.py logic changes, to force-clear the Streamlit
     # cache on next load (code changes alone don't change the CSV mtime, so the
     # mtime key wouldn't otherwise invalidate a stale cached result on Cloud).
-    RESULTS_CACHE_VERSION = 5
+    RESULTS_CACHE_VERSION = 6
 
     @st.cache_data(ttl=3600, show_spinner=False)
     def _get_results(year: int, race: str, session_type: str, _mtime: float = 0.0, _ver: int = RESULTS_CACHE_VERSION) -> pd.DataFrame | None:

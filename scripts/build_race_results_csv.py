@@ -75,19 +75,36 @@ def _session_results(year: int, race: str, stype: str) -> list[dict]:
                 "BestLapTime": _fmt(r.get("BestLapTime")), "Laps": r.get("Laps", ""),
             })
     else:
-        session.load(laps=False, telemetry=False)
+        # Race / Sprint: fastf1's native 'Time' column is unreliable for
+        # non-leaders (often shows garbage). Compute each driver's total race
+        # time from the sum of their lap times — this is the true cumulative
+        # time and yields correct gaps.
+        session.load(telemetry=False)
         res = session.results
         if res is None or res.empty:
             return rows
+        total_time = {}
+        if session.laps is not None and not session.laps.empty:
+            try:
+                # Cumulative race time per driver = last lap's cumulative Time.
+                # More robust than summing LapTime (can miss laps for some
+                # drivers in older seasons, and fastf1's native results Time
+                # column is unreliable for non-leaders).
+                cum = session.laps.dropna(subset=["Time"]).groupby("DriverNumber")["Time"].max()
+                total_time = cum.to_dict()
+            except Exception:
+                total_time = {}
         for _, r in res.iterrows():
+            dn = r.get("DriverNumber", "")
+            tval = total_time.get(dn, r.get("Time")) if total_time else r.get("Time")
             rows.append({
                 "Year": year, "Race": race, "Session": stype,
-                "DriverNumber": r.get("DriverNumber", ""), "FullName": r.get("FullName", ""),
-                "TeamName": r.get("TeamName", ""),
+                "DriverNumber": _fmt(dn), "FullName": _fmt(r.get("FullName", "")),
+                "TeamName": _fmt(r.get("TeamName", "")),
                 "Position": _fmt(r.get("Position")),
                 "GridPosition": _fmt(r.get("GridPosition")),
                 "Status": _fmt(r.get("Status")),
-                "Time": _fmt(r.get("Time")),
+                "Time": _fmt(tval),
                 "Points": _fmt(r.get("Points")),
                 "Q1": _fmt(r.get("Q1")), "Q2": _fmt(r.get("Q2")), "Q3": _fmt(r.get("Q3")),
                 "BestLapTime": "", "Laps": "",
