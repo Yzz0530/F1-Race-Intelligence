@@ -107,10 +107,10 @@ def _fmt_gap(time_val, pole_time) -> str:
         diff = time_val - pole_time
     else:
         diff = time_val.total_seconds() - pole_time.total_seconds()
-    if diff == 0:
+    if diff <= 0:
+        # Leader (or a glitched/non-cumulative time) — never show a negative gap.
         return "Pole"
-    sign = "+" if diff > 0 else ""
-    return f"{sign}{diff:.3f}s"
+    return f"+{diff:.3f}s"
 
 
 def _safe_gap(time_val, leader_time) -> str:
@@ -326,7 +326,7 @@ def render_results_tab():
     # Bump this whenever results.py logic changes, to force-clear the Streamlit
     # cache on next load (code changes alone don't change the CSV mtime, so the
     # mtime key wouldn't otherwise invalidate a stale cached result on Cloud).
-    RESULTS_CACHE_VERSION = 6
+    RESULTS_CACHE_VERSION = 7
 
     @st.cache_data(ttl=3600, show_spinner=False)
     def _get_results(year: int, race: str, session_type: str, _mtime: float = 0.0, _ver: int = RESULTS_CACHE_VERSION) -> pd.DataFrame | None:
