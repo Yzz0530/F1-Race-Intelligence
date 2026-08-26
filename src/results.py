@@ -276,17 +276,28 @@ def render_results_tab():
         "data", "race_results.csv",
     )
 
+    def _csv_mtime() -> float:
+        """Modification time of the pre-fetched results CSV.
+
+        Used as a cache-busting key so the RESULTS tab never serves a stale
+        (empty) cached result after the CSV is topped up by the auto-update.
+        """
+        try:
+            return os.path.getmtime(_RESULTS_CSV)
+        except OSError:
+            return 0.0
+
     @st.cache_data(ttl=3600, show_spinner=False)
-    def _get_results(year: int, race: str, session_type: str) -> pd.DataFrame | None:
+    def _get_results(year: int, race: str, session_type: str, _mtime: float = 0.0) -> pd.DataFrame | None:
         # 1) Try the pre-fetched results CSV (instant, works on Cloud too)
-        df = _read_results_csv(year, race, session_type)
+        df = _read_results_csv(year, race, session_type, _mtime=_mtime)
         if df is not None and not df.empty:
             return df
         # 2) Fallback to live fastf1 (future races not yet in the CSV)
         return _load_session_results(year, race, session_type)
 
     @st.cache_data(ttl=3600, show_spinner=False)
-    def _read_results_csv(year: int, race: str, session_type: str) -> pd.DataFrame | None:
+    def _read_results_csv(year: int, race: str, session_type: str, _mtime: float = 0.0) -> pd.DataFrame | None:
         if not os.path.exists(_RESULTS_CSV):
             return None
         try:
@@ -354,7 +365,7 @@ def render_results_tab():
 
     # ── Load and display results ──────────────────────────────────────────
     with st.spinner(f"Loading {SESSION_DISPLAY.get(r_session, r_session)} results..."):
-        results = _get_results(r_year, r_track, r_session)
+        results = _get_results(r_year, r_track, r_session, _mtime=_csv_mtime())
 
     if results is None or results.empty:
         st.warning(
