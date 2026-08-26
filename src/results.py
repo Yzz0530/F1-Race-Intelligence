@@ -302,17 +302,22 @@ def render_results_tab():
         except OSError:
             return 0.0
 
+    # Bump this whenever results.py logic changes, to force-clear the Streamlit
+    # cache on next load (code changes alone don't change the CSV mtime, so the
+    # mtime key wouldn't otherwise invalidate a stale cached result on Cloud).
+    RESULTS_CACHE_VERSION = 2
+
     @st.cache_data(ttl=3600, show_spinner=False)
-    def _get_results(year: int, race: str, session_type: str, _mtime: float = 0.0) -> pd.DataFrame | None:
+    def _get_results(year: int, race: str, session_type: str, _mtime: float = 0.0, _ver: int = RESULTS_CACHE_VERSION) -> pd.DataFrame | None:
         # 1) Try the pre-fetched results CSV (instant, works on Cloud too)
-        df = _read_results_csv(year, race, session_type, _mtime=_mtime)
+        df = _read_results_csv(year, race, session_type, _mtime=_mtime, _ver=_ver)
         if df is not None and not df.empty:
             return df
         # 2) Fallback to live fastf1 (future races not yet in the CSV)
         return _load_session_results(year, race, session_type)
 
     @st.cache_data(ttl=3600, show_spinner=False)
-    def _read_results_csv(year: int, race: str, session_type: str, _mtime: float = 0.0) -> pd.DataFrame | None:
+    def _read_results_csv(year: int, race: str, session_type: str, _mtime: float = 0.0, _ver: int = 0) -> pd.DataFrame | None:
         if not os.path.exists(_RESULTS_CSV):
             return None
         try:
