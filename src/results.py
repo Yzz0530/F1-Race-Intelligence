@@ -324,6 +324,7 @@ def render_results_tab():
             return None
         # Reconstruct the same column shapes _build_results_table expects
         out = sub.copy()
+        out = out.reset_index(drop=True)  # clean 0-based index so _build_results_table column alignment works
         for col in ("Position", "GridPosition", "Points", "Laps"):
             if col in out.columns:
                 out[col] = pd.to_numeric(out[col], errors="coerce")
