@@ -36,7 +36,7 @@ COLUMNS = [
 fastf1.Cache.enable_cache(CACHE_DIR)
 
 YEARS = [2025, 2026]
-SESSION_TYPES = ["FP1", "FP2", "FP3", "Q", "Sprint Qualifying", "Sprint", "R"]
+SESSION_TYPES = ["FP1", "FP2", "FP3", "Sprint Qualifying", "Sprint", "Q", "R"]
 LAPS_NEEDED = {"FP1", "FP2", "FP3", "Sprint Qualifying"}
 
 

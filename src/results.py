@@ -1,7 +1,7 @@
 """
 F1 Race Results Tab — Session results for any track/session combination.
 
-Supports: FP1, FP2, FP3, Q, Sprint Qualifying, Sprint, R
+Supports: FP1, FP2, FP3, Sprint Qualifying, Sprint, Q, R
 Data source: fastf1 (live API)
 """
 from __future__ import annotations
@@ -38,7 +38,7 @@ TEAM_COLORS: dict[str, str] = {
     "Cadillac": "#aaaaad",
 }
 
-SESSION_TYPES = ["FP1", "FP2", "FP3", "Q", "Sprint Qualifying", "Sprint", "R"]
+SESSION_TYPES = ["FP1", "FP2", "FP3", "Sprint Qualifying", "Sprint", "Q", "R"]
 
 # Display names for the session radio buttons
 SESSION_DISPLAY = {
