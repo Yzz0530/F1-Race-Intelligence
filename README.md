@@ -22,97 +22,105 @@ Built as a portfolio project targeting motorsport analytics — combining ML, da
 
 ## Performance
 
-- **XGBoost (absolute lap‑time)**: 0.48s MAE — 27 features, Optuna‑tuned
-- **Training data**: 28,000+ laps across 2025–2026 F1 seasons
-- **Physics‑ML blend**: hybrid prediction for known and unseen circuits
-- **Monte Carlo strategy engine**: configurable runs with SC/DNF modelling
+- **XGBoost (delta-from-baseline):** 0.88s MAE — 31 features, Optuna‑tuned (25 trials)
+- **Training data:** 29,800+ laps across 2025–2026 F1 seasons (24 races, 24 drivers)
+- **Physics‑ML blend:** hybrid prediction (ML_WEIGHT=0.4) for known and unseen circuits
+- **Monte Carlo strategy engine:** configurable runs with SC/DNF modelling
+- **Compound differentiation:** model now ranks SOFT < MEDIUM < HARD correctly (fixed Aug 2026)
 
 ## Pipeline
 
-```
-download_all_races.py    → Downloads F1 session data via fastf1
-prepare_enhanced_data.py → Cleans data & engineers features (circuit, weather, sector speeds)
-train.py                 → Optuna‑tuned XGBoost (absolute lap‑time regression)
-strategy_optimizer.py    → Monte Carlo strategy simulation (physics + ML blend)
-dashboard.py             → Streamlit UI (11 tabs, interactive controls)
-```
-
-## Tech Stack
-
-| Component | Technology |
-|---|---|
-| **Models** | XGBoost, Optuna, scikit‑learn |
-| **Simulation** | Monte Carlo, custom physics engine |
-| **UI** | Streamlit 1.59.0, custom CSS (carbon‑fibre theme) |
-| **Data** | fastf1, pandas, numpy |
-| **CI/CD** | GitHub Actions (auto‑update pipeline) |
-| **Deployment** | Streamlit Cloud |
-
-## Automation
-
-Data pipeline runs automatically every Monday at 9am UTC via GitHub Actions:
-
-1. **Download** → Fetches new race data from fastf1
-2. **Prepare** → Cleans data & engineers features
-3. **Train** → Retrains XGBoost with Optuna hyperparameter optimization
-4. **Deploy** → Commits updated data + model, Streamlit Cloud auto‑redeploys
-
-Manual trigger available in GitHub Actions tab.
-
-## Setup
-
-```powershell
-pip install -r requirements.txt
+```text
+download_all_races.py  →  prepare_enhanced_data.py  →  train.py  →  dashboard.py / optimizer
+(fastf1 ingestion)        (feature engineering)        (XGBoost + Optuna)
 ```
 
 ## Usage
 
-```powershell
-# 1. Download race data
-python src/download_all_races.py
+### Run the dashboard
 
-# 2. Prepare features
-python src/prepare_enhanced_data.py
+```bash
+# Requires system Python 3.12 (streamlit not in Hermes venv)
+python -m streamlit run src/dashboard.py --server.port 8501
+```
 
-# 3. Train the XGBoost model
+Dashboard available at `http://localhost:8501`.
+
+### Retrain the model
+
+```bash
 python src/train.py
+```
 
-# 4. Launch the dashboard
-streamlit run src/dashboard.py
+Trains XGBoost with Optuna hyperparameter search (25 trials), saves model + encoders + feature list to `models/`.
+
+### Run tests
+
+```bash
+python -m pytest tests/ -v
 ```
 
 ## Project Structure
 
 ```
-src/
-├── dashboard.py             # Streamlit UI (11 tabs)
-├── style.css                # Custom F1‑themed CSS
-├── train.py                 # Optuna + XGBoost training pipeline
-├── download_all_races.py    # fastf1 data ingestion
-├── prepare_enhanced_data.py # Feature engineering
-├── strategy_optimizer.py    # Monte Carlo strategy simulation
-├── race_physics.py          # Physics engine (fuel, tyre wear, lap modelling)
-├── undercut_analyzer.py     # Undercut / overcut analysis
-├── telemetry_loader.py      # Fast‑lap & stint telemetry
-├── strategy_assistant.py    # AI Assistant (natural‑language Q&A)
-├── race_timeline.py         # Stint‑by‑stint race timeline & degradation
-├── results.py               # Track session results (FP/Q/Race)
-├── standings.py             # Championship standings tables
-tests/
-└── test_optimizer.py        # 24 unit tests
-assets/
-└── f1_theme.mp3             # Background theme music
-data/
-├── all_races_master.csv     # Combined 2025+2026 training data
-├── all_races_2026.csv       # 2026 season data
-├── all_races_2025.csv       # 2025 season data
-└── circuits_metadata.csv    # Circuit characteristics
+F1-Race-Intelligence/
+├── src/
+│   ├── dashboard.py          # Streamlit dashboard (11 tabs)
+│   ├── train.py              # XGBoost training with Optuna
+│   ├── strategy_optimizer.py # Monte Carlo strategy simulation
+│   ├── strategy_assistant.py # AI strategy Q&A
+│   ├── race_physics.py       # Physics engine (fuel, tyres, SC)
+│   ├── undercut_analyzer.py  # Undercut/overcut analysis
+│   ├── results.py            # Live race results (fastf1)
+│   ├── standings.py          # Championship standings
+│   ├── telemetry_loader.py   # Car telemetry (fastf1)
+│   ├── race_timeline.py      # Race timeline visualization
+│   ├── style.css             # Dashboard stylesheet
+│   └── __init__.py
+├── models/                   # Trained model + artifacts
+│   ├── xgb_master.pkl
+│   ├── le_driver_master.pkl
+│   ├── le_compound_master.pkl
+│   ├── le_family_master.pkl
+│   ├── feature_list_master.pkl
+│   ├── fallback_features.pkl
+│   ├── driver_form_proxy.pkl
+│   ├── circuit_info.pkl
+│   └── race_baselines.pkl
+├── data/
+│   ├── all_races_master.csv  # Combined training data
+│   ├── all_races_2025.csv
+│   ├── all_races_2026.csv
+│   └── circuits_metadata.csv
+├── tests/
+│   └── test_optimizer.py     # 24 unit tests
+├── AGENTS.md                 # Project context for AI sessions
+└── README.md
 ```
 
-## Disclaimer
+## Model Details
 
-This project is an independent portfolio work and is not affiliated with, endorsed by, or associated with Formula 1, FIA, or any of their subsidiaries. All data is sourced from publicly available APIs and is for educational purposes only.
+The model predicts **delta from race baseline** (how much faster/slower a lap is vs the race average), not absolute lap time. This forces the model to learn compound/tyre effects rather than memorizing per-driver-per-race means.
 
----
+**Feature importance (top 10):**
+1. FuelWeightEffect
+2. Position_normalized
+3. LapInRace
+4. LapInRace_sq
+5. Stint
+6. StintPhase
+7. CircuitLength_km
+8. IsPersonalBest_int
+9. CircuitAvgSpeed
+10. DriverForm
 
-© 2026 Tang Yi Zhe. F1 Race Intelligence. All rights reserved.
+Compound_enc and CompoundOrdinal now have meaningful importance (~186 and ~170 gain), enabling proper strategy differentiation.
+
+## Known Issues
+
+- **Dashboard sidebar (line 241):** claims "MAE 0.73s" — actual validation MAE is 0.88s. Deferred per user request.
+- **README performance section:** previously claimed 0.48s MAE — now updated to 0.88s.
+
+## License
+
+Portfolio project — free to use and modify.
