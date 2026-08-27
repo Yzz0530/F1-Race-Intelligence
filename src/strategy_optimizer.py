@@ -32,7 +32,7 @@ class F1StrategyOptimizer:
     FUEL_BURN: float = -0.020
     OUT_LAP_PENALTY: float = 0.5
     PIT_LOSS: float = 22.0
-    ML_WEIGHT: float = 0.7  # blend between ML and physics; 1.0 = pure ML
+    ML_WEIGHT: float = 0.4  # blend between ML and physics; 1.0 = pure ML
 
     def __init__(self) -> None:
         models_dir = os.path.join(_BASE, "models")
@@ -52,6 +52,10 @@ class F1StrategyOptimizer:
         for d in df["Driver"].unique():
             avg = df[df["Driver"] == d]["LapTime"].mean()
             self.driver_offsets[d] = avg - overall_avg
+
+        # Per-race baseline (mean lap time per race) — used to convert delta
+        # predictions back to absolute lap times
+        self.race_baselines: dict[str, float] = df.groupby("Race")["LapTime"].mean().to_dict()
 
         self._encoded_drivers: dict[str, int] = {
             d: int(self.le_driver.transform([d])[0]) for d in self.le_driver.classes_
@@ -78,7 +82,7 @@ class F1StrategyOptimizer:
             "CompoundFamily_enc": family_enc,
             "IsWet": 0.0,
             "TrackStatus": 1.0,
-            "DriverForm": driver_form,
+            "DriverForm": driver_form * 0.15,
             "Position_normalized": fb.get("Position_normalized", 0.5),
             "IsPersonalBest_int": 0.0,
             "S1_speed": fb.get("S1_speed", 120.0),
@@ -183,6 +187,9 @@ class F1StrategyOptimizer:
                 noise = rng.normal(0, 0.08)
                 if ml_preds is not None:
                     ml_lt = float(ml_preds[flat_idx])
+                    # Convert delta prediction back to absolute lap time
+                    base_for_race = self.race_baselines.get(race_name, self.overall_baseline)
+                    ml_lt += base_for_race
                     phys_delta = self._physics_delta(driver, compound, lis, lap_number, sc_active)
                     lt = ml_lt + (1.0 - self.ML_WEIGHT) * phys_delta + noise
                 else:

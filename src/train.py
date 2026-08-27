@@ -58,8 +58,12 @@ stint_len = df.groupby(["Race", "Driver", "Stint"])["LapInStint"].transform("max
 progress = df["LapInStint"] / stint_len.clip(lower=1)
 df["StintPhase"] = pd.cut(progress, bins=[0, 0.33, 0.66, 1], labels=[0, 1, 2]).fillna(0).astype(int)
 
-# Target: absolute lap time (not delta from race baseline)
-df["Target"] = df["LapTime"].astype(np.float32)
+# Target: delta from per-race baseline — forces the model to learn
+# compound/tyre effects rather than memorizing per-driver-per-race means.
+# With absolute lap time as target, DriverForm (per-driver-per-race mean)
+# absorbs nearly all variance and compound features get zero importance.
+df["RaceBaseline"] = df.groupby("Race")["LapTime"].transform("mean")
+df["Target"] = (df["LapTime"] - df["RaceBaseline"]).astype(np.float32)
 
 # Feature columns (must stay in this order for prediction)
 misc: list[str] = ["Position_normalized", "IsPersonalBest_int", "FreshTire_int", "IsStartLap"]
