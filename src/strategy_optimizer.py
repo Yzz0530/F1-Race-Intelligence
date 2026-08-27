@@ -138,17 +138,23 @@ class F1StrategyOptimizer:
         sc_delta = 3.0 if sc_active else 0.0
         return base_speed + tire_deg + fuel + out_lap + driver_off + sc_delta
 
-    def simulate_strategy(
+    def _common_simulate(
         self,
         race_name: str,
         total_laps: int,
         driver: str,
         strategy: _Strategy,
+        ml_preds: np.ndarray | None = None,
         pit_loss: float | None = None,
         rng: np.random.RandomState | None = None,
         sc_prob: float = 0.0,
         dnf_prob: float = 0.0,
     ) -> _RunResult | None:
+        """Shared simulation core used by both simulate_strategy and _simulate_from_ml.
+
+        When ml_preds is None, the caller is responsible for providing a feature
+        matrix and the fallback physics path is used.
+        """
         if driver not in self.driver_offsets:
             return None
         if rng is None:
@@ -157,12 +163,6 @@ class F1StrategyOptimizer:
             pit_loss = self.PIT_LOSS
         if rng.random() < dnf_prob:
             return None
-
-        feat_mat = self._build_feature_matrix(driver, race_name, strategy)
-        try:
-            ml_preds: np.ndarray | None = self.xgb_model.predict(feat_mat)
-        except Exception:
-            ml_preds = None
 
         total_time = 0.0
         stint_details: list[dict[str, Any]] = []
@@ -212,6 +212,28 @@ class F1StrategyOptimizer:
             "sc_deployed": sc_deployed,
         }
 
+    def simulate_strategy(
+        self,
+        race_name: str,
+        total_laps: int,
+        driver: str,
+        strategy: _Strategy,
+        pit_loss: float | None = None,
+        rng: np.random.RandomState | None = None,
+        sc_prob: float = 0.0,
+        dnf_prob: float = 0.0,
+    ) -> _RunResult | None:
+        """Run a single strategy simulation (ML + physics blend)."""
+        feat_mat = self._build_feature_matrix(driver, race_name, strategy)
+        ml_preds: np.ndarray | None = None
+        try:
+            ml_preds = self.xgb_model.predict(feat_mat)
+        except Exception:
+            ml_preds = None
+        return self._common_simulate(race_name, total_laps, driver, strategy,
+                                      ml_preds=ml_preds, pit_loss=pit_loss,
+                                      rng=rng, sc_prob=sc_prob, dnf_prob=dnf_prob)
+
     def _simulate_from_ml(
         self,
         race_name: str,
@@ -224,59 +246,10 @@ class F1StrategyOptimizer:
         sc_prob: float = 0.0,
         dnf_prob: float = 0.0,
     ) -> _RunResult | None:
-        if driver not in self.driver_offsets:
-            return None
-        if rng is None:
-            rng = np.random.RandomState()
-        if pit_loss is None:
-            pit_loss = self.PIT_LOSS
-        if rng.random() < dnf_prob:
-            return None
-
-        total_time = 0.0
-        stint_details: list[dict[str, Any]] = []
-        lap_number = 1
-        sc_deployed = False
-        sc_next_lap: int | None = None
-        if rng.random() < sc_prob:
-            sc_next_lap = rng.randint(5, max(15, total_laps // 3))
-
-        flat_idx = 0
-        for stint_idx, (compound, stint_laps) in enumerate(strategy):
-            times: list[float] = []
-            for lis in range(1, stint_laps + 1):
-                sc_active = (sc_next_lap == lap_number)
-                if sc_active:
-                    sc_deployed = True
-                    sc_next_lap = None
-                noise = rng.normal(0, 0.08)
-                ml_lt = float(ml_preds[flat_idx])
-                phys_delta = self._physics_delta(driver, compound, lis, lap_number, sc_active)
-                lt = ml_lt + (1.0 - self.ML_WEIGHT) * phys_delta + noise
-                times.append(lt)
-                total_time += lt
-                lap_number += 1
-                flat_idx += 1
-            stint_details.append({
-                "compound": compound,
-                "laps": stint_laps,
-                "avg_time": float(np.mean(times)),
-                "lap_times": times,
-            })
-            if stint_idx < len(strategy) - 1:
-                total_time += pit_loss
-
-        return {
-            "race": race_name,
-            "driver": driver,
-            "total_laps": total_laps,
-            "stints": len(strategy),
-            "strategy": [(c, l) for c, l in strategy],
-            "total_time": total_time,
-            "pit_loss_total": pit_loss * (len(strategy) - 1),
-            "stint_details": stint_details,
-            "sc_deployed": sc_deployed,
-        }
+        """Run a single strategy simulation using pre-computed ML predictions."""
+        return self._common_simulate(race_name, total_laps, driver, strategy,
+                                      ml_preds=ml_preds, pit_loss=pit_loss,
+                                      rng=rng, sc_prob=sc_prob, dnf_prob=dnf_prob)
 
     def optimize(
         self,

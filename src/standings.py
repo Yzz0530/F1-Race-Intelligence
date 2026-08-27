@@ -271,7 +271,7 @@ def _compute_constructor_standings(df: pd.DataFrame) -> pd.DataFrame:
 
     return progression
 
-
+def _render_progression_chart(standings, is_constructor=False, title=""):
     """Render cumulative points progression chart."""
     fig, ax = plt.subplots(figsize=(12, 6))
     fig.patch.set_facecolor("#0f0f0f")

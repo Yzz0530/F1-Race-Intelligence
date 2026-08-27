@@ -57,48 +57,48 @@ class StrategyAssistant:
         # Degradation in next 3 laps if staying out
         future_loss = tyre_degradation(current_compound, tyre_age + 3) - current_loss
 
-        # Fuel delta (lighter = faster)
-        fuel = fuel_effect(current_lap, total_laps)
+        # Fuel delta (lighter = faster) over next 3 laps
+        fuel_delta = fuel_effect(current_lap + 3, total_laps) - fuel_effect(current_lap, total_laps)
 
-        # Calculate time lost to degradation over remaining laps
-        deg_per_lap = {
-            "SOFT": 0.08, "MEDIUM": 0.045, "HARD": 0.025
-        }.get(current_compound, 0.045)
+        # Cost of staying out 5 more laps (marginal degradation)
+        time_lost_staying_out = tyre_degradation(current_compound, tyre_age + 5) - tyre_degradation(current_compound, tyre_age)
 
-        time_lost_staying_out = deg_per_lap * min(laps_remaining, 6) * 2  # doubled for heavy deg
-        pit_time_loss = PIT_LOSS_DEFAULT
+        # Benefit of fresh tyres over old tyres for next 5 laps
+        fresh_benefit = sum(
+            tyre_degradation(current_compound, tyre_age + lap) - tyre_degradation(current_compound, lap)
+            for lap in range(1, 6)
+        )
 
-        # Fresh tyre gain over first 5 laps
-        fresh_gain = 0.35 * 2 + 0.08 * 2  # compound delta + no deg
-
-        net = (time_lost_staying_out + fresh_gain) - pit_time_loss
+        # Net benefit of pitting now vs waiting 5 laps (positive = pit now is better)
+        # Pit loss is a sunk cost (eventual pit), so not included here
+        net = fresh_benefit - time_lost_staying_out
 
         if current_compound == "INTERMEDIATE":
             return "💧 Wet tyres — pit only if dry line appears or tyres are grained."
 
         # Check if undercut is viable
-        undercut_check = undercut_benefit(current_lap, total_laps, tyre_age, "MEDIUM", position)
+        undercut_check = undercut_benefit(current_lap, total_laps, tyre_age, current_compound, position)
         undercut_works = undercut_check["net_benefit"] > -PIT_LOSS_DEFAULT + 2
 
         advice = []
         if net > 5:
-            advice.append("✅ **YES** — pit now. Tyre degradation is costing significant time.")
+            advice.append(f"✅ **YES** — pit now. {current_compound} degradation is costing {time_lost_staying_out:.2f}s over 5 more laps.")
         elif net > 0:
-            advice.append("✅ **PIT SUGGESTED** — fresh tyres will offset the stop loss within 3-5 laps.")
+            advice.append(f"✅ **PIT SUGGESTED** — fresh tyres will offset the stop loss within ~{PIT_LOSS_DEFAULT / max(fresh_benefit, 0.01):.0f} laps.")
         elif net > -5:
             if tyre_age > 15:
                 advice.append("⚠️ **BORDERLINE** — tyres are old but track position may be valuable.")
             else:
-                advice.append("⚠️ **NO** — you'll lose more in the pit than you gain from fresh tyres.")
+                advice.append("⚠️ **NO** — you'd lose more in the pit than you'd gain from fresh tyres right now.")
         else:
-            advice.append("❌ **STAY OUT** — pit loss outweighs any degradation gain right now.")
+            advice.append("❌ **STAY OUT** — pit loss outweighs degradation gain over the next 5 laps.")
 
         if undercut_works and gap_to_next_pit < 3:
             advice.append(f"📊 Undercut window open — {gap_to_next_pit:.1f}s gap to car ahead.")
 
-        # Fuel adjustment
-        if fuel < -0.3:
-            advice.append(f"⛽ Fuel load decreasing — you'll gain ~{abs(fuel):.2f}s from fuel burn.")
+        fuel_delta = fuel_effect(current_lap + 3, total_laps) - fuel_effect(current_lap, total_laps)
+        if fuel_delta < -0.3:
+            advice.append(f"⛽ Fuel load decreasing — you'll gain ~{abs(fuel_delta):.2f}s from fuel burn over 3 laps.")
 
         deg_info = f"Degradation: +{future_loss:.2f}s in next 3 laps on {current_compound} "
         deg_info += f"(age {tyre_age} laps)"
@@ -107,7 +107,7 @@ class StrategyAssistant:
             f"## Should you pit? (Lap {current_lap} of {total_laps})\n\n"
             + "\n".join(advice)
             + f"\n\n**{deg_info}**"
-            + f"\n**Pit window:** ~{PIT_LOSS_DEFAULT}s lost vs ~{fresh_gain:.1f}s gained from fresh tyres"
+            + f"\n**Pit window:** ~{PIT_LOSS_DEFAULT}s lost vs ~{fresh_benefit:.1f}s gained from fresh tyres"
         )
         return answer
 
@@ -206,7 +206,7 @@ class StrategyAssistant:
             breakdown.append(f"  Lap {lap}: | {deg_loss:.3f}s deg | {fuel_gain:+.3f}s fuel = {net:+.3f}s")
 
         # Compare to pitting and coming out on fresh tyres
-        fresh_gain_first_laps = compound_delta({"SOFT": -0.35, "MEDIUM": 0.0, "HARD": 0.20}.get(current_compound, 0))
+        fresh_gain_first_laps = compound_delta(current_compound)
 
         lines = [
             f"## Time cost of {extra_laps} more laps on {current_compound}\n",
@@ -277,10 +277,18 @@ class StrategyAssistant:
         return "\n".join(lines)
 
     def long_run_prediction(self, driver: str, track: str, total_laps: int,
-                            compound: str, stint_laps: int) -> str:
-        """Full stint prediction for a given compound."""
+                            compound: str, stint_laps: int,
+                            race_fuel_laps: int | None = None) -> str:
+        """Full stint prediction for a given compound.
+
+        race_fuel_laps: if provided, the total race length used for fuel
+        burn calculations (default: stint_laps, which assumes a standalone
+        stint, not a stint within a longer race).
+        """
+        if race_fuel_laps is None:
+            race_fuel_laps = stint_laps
         strategy = [(compound, stint_laps)]
-        result = self.opt.get_detailed_run(track, stint_laps, driver, strategy)
+        result = self.opt.get_detailed_run(track, race_fuel_laps, driver, strategy)
         if not result or not result.get("stint_details"):
             return f"⚠️ Could not simulate {compound} stint for {driver} @ {track}."
 

@@ -119,7 +119,7 @@ class UndercutAnalyzer:
                     stint_a += 1
                     lap_a_tyre = 0
                 lap_a_tyre += 1
-                t_a += base + compound_delta(driver_a_compound if stint_a < len([driver_a_compound] * 10) else driver_a_compound)
+                t_a += base + compound_delta(driver_a_compound)
                 t_a += tyre_degradation(driver_a_compound, lap_a_tyre)
                 t_a += fuel_effect(lap_num, total_laps)
 
@@ -131,7 +131,7 @@ class UndercutAnalyzer:
                     stint_b += 1
                     lap_b_tyre = 0
                 lap_b_tyre += 1
-                t_b += base + compound_delta(driver_b_compound if stint_b < len([driver_b_compound] * 10) else driver_b_compound)
+                t_b += base + compound_delta(driver_b_compound)
                 t_b += tyre_degradation(driver_b_compound, lap_b_tyre)
                 t_b += fuel_effect(lap_num, total_laps)
 

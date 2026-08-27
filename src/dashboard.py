@@ -863,9 +863,9 @@ elif active_tab == "PIT ANALYSIS":
             ax.axhline(y=0, color="#444", linewidth=0.5, linestyle="--")
             for e in events:
                 if e["a_pitted"]:
-                    ax.axvline(x=e["lap"], color=_team_color(d1) if 'd1' in dir() else F1_RED, linestyle=":", alpha=0.3)
+                    ax.axvline(x=e["lap"], color=F1_RED, linestyle=":", alpha=0.3)
                 if e["b_pitted"]:
-                    ax.axvline(x=e["lap"], color=_team_color(d2) if 'd2' in dir() else "#3793ff", linestyle=":", alpha=0.3)
+                    ax.axvline(x=e["lap"], color="#3793ff", linestyle=":", alpha=0.3)
             style_ax(ax, "Lap", "Δ A−B (s)")
             st.pyplot(fig, clear_figure=True)
         except Exception as e:
