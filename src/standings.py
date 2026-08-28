@@ -111,16 +111,18 @@ def _standings_from_csv(year: int) -> pd.DataFrame | None:
 
 
 def _csv_covers_completed(csv_df: pd.DataFrame, year: int) -> bool:
-    """True if the CSV already contains every race weekend that has been run."""
-    try:
-        schedule = _get_schedule(year)
-    except Exception:
-        return False
-    now = pd.Timestamp.now().tz_localize(None)
-    date_col = ("Session5DateUtc" if "Session5DateUtc" in schedule
-                else ("EventDate" if "EventDate" in schedule else None))
-    completed = schedule[schedule[date_col] < now] if date_col else schedule
-    return set(completed["EventName"]).issubset(set(csv_df["Race"].unique()))
+    """Offline proxy for 'has every completed race been ingested'.
+
+    The committed race_results.csv is the authoritative results source (topped up
+    by the pipeline). We therefore treat 'CSV has results for this year' as
+    'use the CSV' — this avoids a live fastf1.get_event_schedule() call on the
+    standings hot path, which is the main cold-cache hang on Streamlit Cloud.
+    Trade-off: for up to ~1 day after a race finishes (before the next CSV
+    commit), standings may lag the latest round; that is preferable to a 30-60s
+    freeze on every load.
+    """
+    sub = csv_df[(csv_df["Year"] == year)] if "Year" in csv_df.columns else csv_df
+    return not sub.empty
 
 
 @st.cache_data(ttl=3600, show_spinner=False)

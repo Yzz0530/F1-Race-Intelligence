@@ -275,43 +275,82 @@ def _render_position_chart(results: pd.DataFrame, session_type: str, race: str, 
     plt.close(fig)
 
 
+_RESULTS_CSV = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "data", "race_results.csv",
+)
+
+# Display names for the session radio buttons
+SESSION_NAME_TO_KEY = {
+    "Practice 1": "FP1", "Practice 2": "FP2", "Practice 3": "FP3",
+    "Qualifying": "Q", "Sprint Qualifying": "Sprint Qualifying",
+    "Sprint": "Sprint", "Race": "R",
+}
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _get_schedule(year: int) -> list[str]:
+    schedule = fastf1.get_event_schedule(year)
+    schedule = schedule[schedule["EventFormat"] != "testing"]
+    return sorted(schedule["EventName"].tolist())
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _get_tracks(year: int) -> list[str]:
+    """Instant, offline track list derived from the committed race_results.csv.
+
+    Avoids a live fastf1.get_event_schedule() call on every cold load — which is
+    the main 30-60s hang on Streamlit Cloud before the tab renders anything.
+    Falls back to a live schedule only for a year not yet in the committed CSV.
+    """
+    if os.path.exists(_RESULTS_CSV):
+        try:
+            csv = pd.read_csv(_RESULTS_CSV)
+            sub = csv[csv["Year"] == year]
+            if not sub.empty:
+                return sorted(sub["Race"].unique().tolist())
+        except Exception:
+            pass
+    try:
+        return _get_schedule(year)
+    except Exception:
+        return []
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _get_available_sessions(year: int, race: str) -> list[str]:
+    """Sessions that actually have data for a race, offline-first.
+
+    Derived from the committed race_results.csv so the results-load path doesn't
+    fire a live fastf1.get_event() call (30-60s cold-cache hang on Cloud). Falls
+    back to a live event lookup only for a race not yet in the committed CSV.
+    """
+    if os.path.exists(_RESULTS_CSV):
+        try:
+            csv = pd.read_csv(_RESULTS_CSV)
+            sub = csv[(csv["Year"] == year) & (csv["Race"] == race)]
+            if not sub.empty:
+                present = sub["Session"].unique().tolist()
+                return [s for s in SESSION_TYPES if s in present]
+        except Exception:
+            pass
+    try:
+        event = fastf1.get_event(year, race)
+    except Exception:
+        return []
+    present = []
+    for i in range(1, 6):
+        sname = event.get(f"Session{i}")
+        if not sname:
+            continue
+        key = SESSION_NAME_TO_KEY.get(sname)
+        if key and key in SESSION_TYPES:
+            present.append(key)
+    return [s for s in SESSION_TYPES if s in present]
+
+
 def render_results_tab():
     """Render the race results tab."""
-    # ── Get available sessions for selected year+race ─────────────────────
-    # Derive from the event schedule (single cached fetch via _get_schedule)
-    # instead of downloading all 7 sessions. FastF1's Session1..Session5
-    # columns already list which sessions a weekend actually has.
-    SESSION_NAME_TO_KEY = {
-        "Practice 1": "FP1", "Practice 2": "FP2", "Practice 3": "FP3",
-        "Qualifying": "Q", "Sprint Qualifying": "Sprint Qualifying",
-        "Sprint": "Sprint", "Race": "R",
-    }
-
-    @st.cache_data(ttl=3600, show_spinner=False)
-    def _get_available_sessions(year: int, race: str) -> list[str]:
-        schedule = _get_schedule(year)
-        if race not in schedule:
-            return []
-        try:
-            event = fastf1.get_event(year, race)
-        except Exception:
-            return []
-        present = []
-        for i in range(1, 6):
-            sname = event.get(f"Session{i}")
-            if not sname:
-                continue
-            key = SESSION_NAME_TO_KEY.get(sname)
-            if key and key in SESSION_TYPES:
-                present.append(key)
-        # Preserve canonical order
-        return [s for s in SESSION_TYPES if s in present]
-
-    _RESULTS_CSV = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "data", "race_results.csv",
-    )
-
     def _csv_mtime() -> float:
         """Modification time of the pre-fetched results CSV.
 
@@ -360,18 +399,14 @@ def render_results_tab():
                 out[col] = pd.to_timedelta(out[col].replace("", pd.NA), errors="coerce")
         return out
 
-    @st.cache_data(ttl=3600, show_spinner=False)
-    def _get_schedule(year: int) -> list[str]:
-        schedule = fastf1.get_event_schedule(year)
-        schedule = schedule[schedule["EventFormat"] != "testing"]
-        return sorted(schedule["EventName"].tolist())
+
 
     # ── Layout ────────────────────────────────────────────────────────────
     # Year first, then tracks adapt to selected year
     c1, c2 = st.columns(2)
     with c2:
         r_year = st.selectbox("Year", [2026, 2025], key="res_year")
-    tracks_for_year = _get_schedule(r_year)
+    tracks_for_year = _get_tracks(r_year)
     with c1:
         r_track = st.selectbox("Track", tracks_for_year, key="res_track")
 

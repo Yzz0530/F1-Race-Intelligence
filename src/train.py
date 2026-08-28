@@ -127,97 +127,102 @@ def objective(trial: optuna.Trial) -> float:
     m.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
     return float(mean_absolute_error(y_val, m.predict(X_val)))
 
-study = optuna.create_study(direction="minimize", study_name="f1_laptime")
-study.optimize(objective, n_trials=25)
-log.info(f"Best MAE: {study.best_value:.4f}s")
-log.info(f"Best params: {study.best_params}")
+def main() -> None:
+    study = optuna.create_study(direction="minimize", study_name="f1_laptime")
+    study.optimize(objective, n_trials=25)
+    log.info(f"Best MAE: {study.best_value:.4f}s")
+    log.info(f"Best params: {study.best_params}")
 
-# --- Train final model ---
-log.info("Training final model with best params...")
-best_params = {**study.best_params, "random_state": 42}
-model = xgb.XGBRegressor(**best_params)
-model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
+    # --- Train final model ---
+    log.info("Training final model with best params...")
+    best_params = {**study.best_params, "random_state": 42}
+    model = xgb.XGBRegressor(**best_params)
+    model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
 
-val_pred = model.predict(X_val)
-val_mae = mean_absolute_error(y_val, val_pred)
-log.info(f"Validation MAE: {val_mae:.4f}s")
+    val_pred = model.predict(X_val)
+    val_mae = mean_absolute_error(y_val, val_pred)
+    log.info(f"Validation MAE: {val_mae:.4f}s")
 
-train_pred = model.predict(X_train)
-train_mae = mean_absolute_error(y_train, train_pred)
-log.info(f"Train MAE: {train_mae:.4f}s")
+    train_pred = model.predict(X_train)
+    train_mae = mean_absolute_error(y_train, train_pred)
+    log.info(f"Train MAE: {train_mae:.4f}s")
 
-# --- Save artifacts ---
-log.info("Saving artifacts...")
-joblib.dump(model, os.path.join(MODEL_DIR, "xgb_master.pkl"))
-joblib.dump(le_driver, os.path.join(MODEL_DIR, "le_driver_master.pkl"))
-joblib.dump(le_compound, os.path.join(MODEL_DIR, "le_compound_master.pkl"))
-joblib.dump(le_family, os.path.join(MODEL_DIR, "le_family_master.pkl"))
-joblib.dump(FEATURES, os.path.join(MODEL_DIR, "feature_list_master.pkl"))
+    # --- Save artifacts ---
+    log.info("Saving artifacts...")
+    joblib.dump(model, os.path.join(MODEL_DIR, "xgb_master.pkl"))
+    joblib.dump(le_driver, os.path.join(MODEL_DIR, "le_driver_master.pkl"))
+    joblib.dump(le_compound, os.path.join(MODEL_DIR, "le_compound_master.pkl"))
+    joblib.dump(le_family, os.path.join(MODEL_DIR, "le_family_master.pkl"))
+    joblib.dump(FEATURES, os.path.join(MODEL_DIR, "feature_list_master.pkl"))
 
-# Per-track fallback features (weather, sector speeds, position, circuit)
-fallback_cols = weather + sectors + ["Position_normalized"] + circuit
-fallback = df.groupby("Race")[fallback_cols].mean().to_dict("index")
-joblib.dump(fallback, os.path.join(MODEL_DIR, "fallback_features.pkl"))
+    # Per-track fallback features (weather, sector speeds, position, circuit)
+    fallback_cols = weather + sectors + ["Position_normalized"] + circuit
+    fallback = df.groupby("Race")[fallback_cols].mean().to_dict("index")
+    joblib.dump(fallback, os.path.join(MODEL_DIR, "fallback_features.pkl"))
 
-# Per-race DriverForm proxy
-form_proxy = df.groupby(["Race", "Driver"])["LapTime"].mean().to_dict()
-joblib.dump(form_proxy, os.path.join(MODEL_DIR, "driver_form_proxy.pkl"))
+    # Per-race DriverForm proxy
+    form_proxy = df.groupby(["Race", "Driver"])["LapTime"].mean().to_dict()
+    joblib.dump(form_proxy, os.path.join(MODEL_DIR, "driver_form_proxy.pkl"))
 
-# Race baselines (per-race average lap time) - kept for backward compat
-baselines = df.groupby("Race")["LapTime"].mean().to_dict()
-joblib.dump(baselines, os.path.join(MODEL_DIR, "race_baselines.pkl"))
+    # Race baselines (per-race average lap time) - kept for backward compat
+    baselines = df.groupby("Race")["LapTime"].mean().to_dict()
+    joblib.dump(baselines, os.path.join(MODEL_DIR, "race_baselines.pkl"))
 
-# Circuit metadata for new tracks
-circuits_path = os.path.join(DATA_DIR, "circuits_metadata.csv")
-circuits_df = pd.read_csv(circuits_path)
-race_to_circuit = {
-    "Bahrain Grand Prix": "Bahrain International Circuit",
-    "Saudi Arabian Grand Prix": "Jeddah Corniche Circuit",
-    "Australian Grand Prix": "Albert Park Circuit",
-    "Azerbaijan Grand Prix": "Baku City Circuit",
-    "Barcelona Grand Prix": "Circuit de Barcelona-Catalunya",
-    "Monaco Grand Prix": "Circuit de Monaco",
-    "Canadian Grand Prix": "Circuit Gilles Villeneuve",
-    "British Grand Prix": "Silverstone Circuit",
-    "Austrian Grand Prix": "Red Bull Ring",
-    "Hungarian Grand Prix": "Hungaroring",
-    "Belgian Grand Prix": "Circuit de Spa-Francorchamps",
-    "Dutch Grand Prix": "Circuit Zandvoort",
-    "Italian Grand Prix": "Monza",
-    "Singapore Grand Prix": "Marina Bay Street Circuit",
-    "Japanese Grand Prix": "Suzuka International Racing Course",
-    "Qatar Grand Prix": "Losail International Circuit",
-    "United States Grand Prix": "Circuit of the Americas",
-    "Mexico City Grand Prix": "Autodromo Hermanos Rodriguez",
-    "São Paulo Grand Prix": "Interlagos",
-    "Las Vegas Grand Prix": "Las Vegas Strip Circuit",
-    "Abu Dhabi Grand Prix": "Yas Marina Circuit",
-    "Miami Grand Prix": "Miami International Autodrome",
-    "Emilia Romagna Grand Prix": "Imola",
-    "Chinese Grand Prix": "Shanghai International Circuit",
-}
-circuit_info = {}
-for race, circuit in race_to_circuit.items():
-    row = circuits_df[circuits_df["Circuit"] == circuit]
-    if not row.empty:
-        circuit_info[race] = {
-            "Length_km": row["Length_km"].values[0],
-            "Corners": row["Corners"].values[0],
-            "AvgSpeed": row["AvgSpeed_kmh"].values[0],
-            "Type_enc": {"Permanent": 0, "Street": 1, "Street/Permanent": 2}.get(row["Type"].values[0], 0)
-        }
-joblib.dump(circuit_info, os.path.join(MODEL_DIR, "circuit_info.pkl"))
+    # Circuit metadata for new tracks
+    circuits_path = os.path.join(DATA_DIR, "circuits_metadata.csv")
+    circuits_df = pd.read_csv(circuits_path)
+    race_to_circuit = {
+        "Bahrain Grand Prix": "Bahrain International Circuit",
+        "Saudi Arabian Grand Prix": "Jeddah Corniche Circuit",
+        "Australian Grand Prix": "Albert Park Circuit",
+        "Azerbaijan Grand Prix": "Baku City Circuit",
+        "Barcelona Grand Prix": "Circuit de Barcelona-Catalunya",
+        "Monaco Grand Prix": "Circuit de Monaco",
+        "Canadian Grand Prix": "Circuit Gilles Villeneuve",
+        "British Grand Prix": "Silverstone Circuit",
+        "Austrian Grand Prix": "Red Bull Ring",
+        "Hungarian Grand Prix": "Hungaroring",
+        "Belgian Grand Prix": "Circuit de Spa-Francorchamps",
+        "Dutch Grand Prix": "Circuit Zandvoort",
+        "Italian Grand Prix": "Monza",
+        "Singapore Grand Prix": "Marina Bay Street Circuit",
+        "Japanese Grand Prix": "Suzuka International Racing Course",
+        "Qatar Grand Prix": "Losail International Circuit",
+        "United States Grand Prix": "Circuit of the Americas",
+        "Mexico City Grand Prix": "Autodromo Hermanos Rodriguez",
+        "São Paulo Grand Prix": "Interlagos",
+        "Las Vegas Grand Prix": "Las Vegas Strip Circuit",
+        "Abu Dhabi Grand Prix": "Yas Marina Circuit",
+        "Miami Grand Prix": "Miami International Autodrome",
+        "Emilia Romagna Grand Prix": "Imola",
+        "Chinese Grand Prix": "Shanghai International Circuit",
+    }
+    circuit_info = {}
+    for race, circuit in race_to_circuit.items():
+        row = circuits_df[circuits_df["Circuit"] == circuit]
+        if not row.empty:
+            circuit_info[race] = {
+                "Length_km": row["Length_km"].values[0],
+                "Corners": row["Corners"].values[0],
+                "AvgSpeed": row["AvgSpeed_kmh"].values[0],
+                "Type_enc": {"Permanent": 0, "Street": 1, "Street/Permanent": 2}.get(row["Type"].values[0], 0),
+            }
+    joblib.dump(circuit_info, os.path.join(MODEL_DIR, "circuit_info.pkl"))
 
-log.info(f"Saved {len(os.listdir(MODEL_DIR))} files to {MODEL_DIR}")
+    log.info(f"Saved {len(os.listdir(MODEL_DIR))} files to {MODEL_DIR}")
 
-# --- Feature importance ---
-fi = pd.DataFrame({"feature": FEATURES, "importance": model.feature_importances_})
-fi = fi.sort_values("importance", ascending=False)
-log.info(f"\nTop 10 features:\n{fi.head(10).to_string(index=False)}")
+    # --- Feature importance ---
+    fi = pd.DataFrame({"feature": FEATURES, "importance": model.feature_importances_})
+    fi = fi.sort_values("importance", ascending=False)
+    log.info(f"\nTop 10 features:\n{fi.head(10).to_string(index=False)}")
 
-log.info(f"\n{'='*50}")
-log.info(f"Train MAE:   {train_mae:.4f}s")
-log.info(f"Val MAE:     {val_mae:.4f}s")
-log.info(f"Best trial:  {study.best_value:.4f}s")
-log.info(f"{'='*50}")
-log.info("Training complete.")
+    log.info(f"\n{'='*50}")
+    log.info(f"Train MAE:   {train_mae:.4f}s")
+    log.info(f"Val MAE:     {val_mae:.4f}s")
+    log.info(f"Best trial:  {study.best_value:.4f}s")
+    log.info(f"{'='*50}")
+    log.info("Training complete.")
+
+
+if __name__ == "__main__":
+    main()
