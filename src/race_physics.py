@@ -67,11 +67,16 @@ PIT_LOSS_SAFETY_CAR: float = 12.0  # pit loss reduced under SC (free pit)
 OUT_LAP_PENALTY: float = 0.5       # extra time on out-lap (cold tyres)
 IN_LAP_PENALTY: float = 0.3        # slight lift on in-lap
 
-# Tyre compound deltas (relative to MEDIUM baseline, in seconds)
+# Tyre compound deltas (relative to MEDIUM baseline, in seconds).
+# INTERMEDIATE is a full-wet tyre: it is ~1.2s slower than dry slicks on a
+# dry track, but the only viable option in rain. The optimizer's physics
+# overlay uses these as the single source of truth (the ML delta target does
+# not separate compounds in the current all-dry training data).
 COMPOUND_DELTA: dict[str, float] = {
     "SOFT": -0.35,
     "MEDIUM": 0.0,
     "HARD": 0.20,
+    "INTERMEDIATE": 1.20,
 }
 
 # Tyre degradation rate per lap (seconds per lap of wear)
@@ -79,6 +84,7 @@ TYRE_DEG_RATE: dict[str, float] = {
     "SOFT": 0.080,
     "MEDIUM": 0.045,
     "HARD": 0.025,
+    "INTERMEDIATE": 0.050,
 }
 
 # Tyre temperature operating window
@@ -92,10 +98,15 @@ TYRE_TEMP_OPT: dict[str, tuple[float, float]] = {
 # ── Physics helpers ───────────────────────────────────────────────
 
 def fuel_effect(lap_number: int, total_laps: int, start_fuel: float = FUEL_START_KG) -> float:
-    """Time delta from fuel load. Early laps carry more fuel → slower."""
+    """Time delta from fuel load. Early laps carry more fuel → slower.
+
+    :param lap_number: 1-based lap index in the race.
+    :param total_laps: total race length (sets the burn rate = start/total).
+    :param start_fuel: starting fuel load in kg (default 110 kg max race load).
+    :return: time penalty in seconds relative to an empty car.
+    """
     fuel_burn_per_lap = start_fuel / max(total_laps, 1)
     remaining_fuel = start_fuel - (lap_number - 1) * fuel_burn_per_lap
-    # Fuel delta relative to empty-car baseline
     return remaining_fuel * FUEL_TIME_PER_KG
 
 
@@ -190,15 +201,13 @@ def undercut_benefit(
     if laps_remaining <= 0:
         return {"loss_from_pit": 0, "gain_from_fresh": 0, "net_benefit": 0, "crossover_lap": 0}
 
-    # Old tyre delta over first X laps after pit
-    old_degradation = tyre_degradation(fresh_compound, tyre_age_before + 1) - tyre_degradation(fresh_compound, tyre_age_before)
-
-    # Fresh tyre advantage per lap (decreases as tyre ages)
+    # Per-lap time delta of (old tyres at age_before+lap) minus (fresh tyres at lap).
+    # Positive = fresh tyres are faster this lap.
     fresh_advantage: list[float] = []
     for lap in range(1, min(laps_remaining + 1, 20)):
         old_time = tyre_degradation(fresh_compound, tyre_age_before + lap)
         new_time = tyre_degradation(fresh_compound, lap)
-        fresh_advantage.append(new_time - old_time)
+        fresh_advantage.append(old_time - new_time)
 
     if not fresh_advantage:
         return {"loss_from_pit": pit_loss, "gain_from_fresh": 0, "net_benefit": -pit_loss, "crossover_lap": 0}
@@ -206,12 +215,12 @@ def undercut_benefit(
     # Crossover: first lap where fresh tyre is faster
     crossover = 0
     for i, diff in enumerate(fresh_advantage):
-        if diff < 0:  # fresh is faster
+        if diff > 0:  # fresh is faster
             crossover = i + 1
             break
 
     # Gain from fresh tyres over first stint after pit (first 5 laps = undercut window)
-    gain_from_fresh = -sum(fresh_advantage[:5])
+    gain_from_fresh = sum(fresh_advantage[:5])
 
     net = gain_from_fresh - pit_loss
     return {

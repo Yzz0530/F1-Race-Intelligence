@@ -3,7 +3,13 @@ F1 Strategy Optimizer — XGBoost-powered race strategy simulation.
 
 Predicts absolute lap times using a trained XGBoost model with
 physics-based fallback. Supports Monte Carlo simulation with
-safety car probability for strategy comparison.
+safety car / DNF probability for strategy comparison.
+
+Compound separation is driven by the physics overlay (race_physics
+COMPOUND_DELTA), because the all-dry training data does not teach the
+ML delta target to distinguish SOFT/MEDIUM/HARD. The overlay is the
+single source of truth for compound/fuel/track effects; the ML delta
+captures driver/race/car-level pace relative to the per-race baseline.
 """
 from __future__ import annotations
 
@@ -27,9 +33,9 @@ COMPOUND_MAP: dict[str, str] = {"SOFT": "DRY", "MEDIUM": "DRY", "HARD": "DRY", "
 
 
 class F1StrategyOptimizer:
-    COMPOUND_SPEED: dict[str, float] = {"SOFT": -0.35, "MEDIUM": 0.0, "HARD": 0.20}
-    TIRE_DEG_RATE: dict[str, float] = {"SOFT": 0.08, "MEDIUM": 0.045, "HARD": 0.025}
-    FUEL_BURN: float = -0.020
+    COMPOUND_SPEED: dict[str, float] = {"SOFT": -0.35, "MEDIUM": 0.0, "HARD": 0.20, "INTERMEDIATE": 1.20}
+    TIRE_DEG_RATE: dict[str, float] = {"SOFT": 0.08, "MEDIUM": 0.045, "HARD": 0.025, "INTERMEDIATE": 0.05}
+    FUEL_BURN: float = -0.035  # seconds per lap from fuel burn (race_physics.FUEL_TIME_PER_KG)
     OUT_LAP_PENALTY: float = 0.5
     PIT_LOSS: float = 22.0
     ML_WEIGHT: float = 0.4  # blend between ML and physics; 1.0 = pure ML
@@ -73,14 +79,18 @@ class F1StrategyOptimizer:
         fb = self.fallback.get(race_name, {})
         circuit = self.circuit_info.get(race_name, {})
         driver_enc = self._encoded_drivers.get(driver, 0)
-        family_enc = self._family_enc
+        # Tyre family / wet flag are race-wide constants in the feature matrix.
+        # Any INTERMEDIATE stint makes the whole run a wet race.
+        compounds_in_strategy = [c for c, _ in strategy]
+        is_wet = any(c == "INTERMEDIATE" for c in compounds_in_strategy)
+        fam_encoded = int(self.le_family.transform(["WET"])[0]) if is_wet else self._family_enc
         form_key = (race_name, driver)
         driver_form = self.driver_form_proxy.get(form_key, self.driver_offsets.get(driver, 0.0))
 
         const_vals = {
             "Driver_enc": driver_enc,
-            "CompoundFamily_enc": family_enc,
-            "IsWet": 0.0,
+            "CompoundFamily_enc": fam_encoded,
+            "IsWet": 1.0 if is_wet else 0.0,
             "TrackStatus": 1.0,
             "DriverForm": driver_form * 0.15,
             "Position_normalized": fb.get("Position_normalized", 0.5),
@@ -133,10 +143,10 @@ class F1StrategyOptimizer:
         return M
 
     def _physics_delta(self, driver: str, compound: str, lap_in_stint: int,
-                       lap_number: int, sc_active: bool) -> float:
+                       lap_number: int, sc_active: bool = False) -> float:
         base_speed = self.COMPOUND_SPEED[compound]
         tire_deg = self.TIRE_DEG_RATE[compound] * (lap_in_stint - 1)
-        fuel = self.FUEL_BURN * (lap_number - 1)
+        fuel = self.FUEL_BURN * lap_number
         out_lap = self.OUT_LAP_PENALTY if lap_in_stint == 1 else 0.0
         driver_off = self.driver_offsets.get(driver, 0.0)
         sc_delta = 3.0 if sc_active else 0.0
@@ -267,7 +277,7 @@ class F1StrategyOptimizer:
         sc_prob: float = 0.0,
         dnf_prob: float = 0.0,
     ) -> list[_OptResult]:
-        compounds = ["SOFT", "MEDIUM", "HARD"]
+        compounds = ["SOFT", "MEDIUM", "HARD", "INTERMEDIATE"]
         step = max(3, total_laps // 15)
         strategies: list[_Strategy] = []
         for c1 in compounds:
@@ -297,7 +307,7 @@ class F1StrategyOptimizer:
             feat_mat = strat_matrices.get(key)
             times: list[float] = []
             for _ in range(mc_runs):
-                rng = np.random.RandomState()
+                rng = np.random.RandomState(1234 + _)
                 if feat_mat is not None:
                     try:
                         ml_preds = self.xgb_model.predict(feat_mat)

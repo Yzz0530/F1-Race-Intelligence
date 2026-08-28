@@ -1,5 +1,5 @@
 """
-F1 Strategy Optimizer Dashboard V2 — 8-tab full-feature UI.
+F1 Strategy Optimizer Dashboard V2 — 11-tab full-feature UI.
 
 Tabs: STRATEGY | DRIVER BATTLE | STINT TELEMETRY | TRACK ANALYSIS |
       SC SIMULATOR | UNDERCUT | TELEMETRY | AI ASSISTANT

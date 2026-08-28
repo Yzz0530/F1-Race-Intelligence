@@ -226,10 +226,35 @@ class StrategyAssistant:
         return "\n".join(lines)
 
     def which_tyre_next(self, driver: str, track: str, total_laps: int,
-                        remaining_laps: int, track_temp: float = 35.0) -> str:
-        """Which tyre should I use for the next stint?"""
+                        remaining_laps: int, track_temp: float = 35.0,
+                        rainfall: float = 0.0) -> str:
+        """Which tyre should I use for the next stint?
+
+        :param rainfall: 0.0 = dry. >0.0 (0.3 damp, 0.7 wet, 1.0+ heavy) forces
+            INTERMEDIATE as the only viable option regardless of slick ranking.
+        """
         if remaining_laps <= 0:
             return "Race is over — no tyre needed."
+
+        # Rain → intermediates are mandatory; slicks are unsafe.
+        if rainfall > 0.3:
+            compound = "INTERMEDIATE"
+            stint_laps = min(remaining_laps, 20)
+            if remaining_laps < 5:
+                stint_laps = remaining_laps
+            theory = race_time_estimate(stint_laps, self.opt.overall_baseline,
+                                        compound, track_temp, rainfall=rainfall)
+            times, total = theory
+            avg = sum(times) / len(times) if times else 999
+            deg = times[-1] - times[0] if len(times) > 1 else 0
+            return (
+                f"## Next tyre choice ({remaining_laps} laps remaining)\n\n"
+                f"🌧️ **Rainfall {rainfall:.1f} — INTERMEDIATE tyres required.**\n\n"
+                f"⭐ **INTERMEDIATE** — avg {avg:.3f}s, deg {deg:+.3f}s over "
+                f"{stint_laps} laps\n\n"
+                f"Dry slicks (SOFT/MEDIUM/HARD) are not viable in these "
+                f"conditions — aquaplaning risk and zero grip."
+            )
 
         candidates = []
         for compound in ["SOFT", "MEDIUM", "HARD"]:
@@ -331,7 +356,7 @@ class StrategyAssistant:
                                      current_compound, tyre_age, track_temp)
         if "fastest" in q or "best strategy" in q or "optimal" in q:
             return self.fastest_strategy(driver, track, total_laps)
-        if "safety car" in q or "sc" in q or "what if" in q:
+        if ("safety car" in q) or (("sc" in q) and ("lap" in q or "scenario" in q or "deploy" in q)):
             sc_lap = current_lap
             # Try to extract a specific lap number
             nums = re.findall(r"lap (\d+)", q)

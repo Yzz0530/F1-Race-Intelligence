@@ -100,21 +100,13 @@ F1-Race-Intelligence/
 
 ## Model Details
 
-The model predicts **delta from race baseline** (how much faster/slower a lap is vs the race average), not absolute lap time. This forces the model to learn compound/tyre effects rather than memorizing per-driver-per-race means.
+The model predicts **delta from race baseline** (how much faster/slower a lap is vs the race average), not absolute lap time. This forces the model to learn driver/car/race pace rather than memorizing per-driver-per-race means.
 
-**Feature importance (top 10):**
-1. FuelWeightEffect
-2. Position_normalized
-3. LapInRace
-4. LapInRace_sq
-5. Stint
-6. StintPhase
-7. CircuitLength_km
-8. IsPersonalBest_int
-9. CircuitAvgSpeed
-10. DriverForm
+**Important — compound/tyre effects are NOT learned from data.** The training set is entirely dry-weather slick laps (SOFT/MEDIUM/HARD), so the ML delta target does not separate compounds — a SOFT lap and a HARD lap for the same driver/race predict the same delta. **Compound ranking in the simulator therefore comes entirely from the physics overlay** (`race_physics.COMPOUND_DELTA` + degradation), blended at 60% weight in the strategy engine. The ML component captures driver/race/car pace; the physics overlay supplies the tyre strategy logic.
 
-Compound_enc and CompoundOrdinal now have meaningful importance (~186 and ~170 gain), enabling proper strategy differentiation.
+**Feature importance (top 10):** the ML model assigns weight to fuel/position/lap-progress/driver-form features. `Compound_enc` and `CompoundOrdinal` appear in the feature list but carry little learned signal on dry data — they are placeholders the physics overlay acts on.
+
+**Known limitation:** because the model targets a per-race delta, laps are predicted relative to that race's mean. On a circuit where the model's baseline is off, every lap shifts together; the *spread* between strategies (the thing the optimizer ranks on) is dominated by the physics overlay and is robust to that offset.
 
 ## Known Issues
 
