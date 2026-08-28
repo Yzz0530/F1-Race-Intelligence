@@ -36,10 +36,35 @@ download_all_races.py  →  prepare_enhanced_data.py  →  train.py  →  dashbo
 - `tests/test_optimizer.py` — 24 tests (strategy simulation, optimization, ML integration)
 - `tests/test_physics_improvements.py` — 6 tests (fuel, wet encoding, determinism, undercut)
 - `tests/test_wet_data.py` — 4 tests (wet-lap ingestion + retrained wet prediction)
-- **Total: 34 tests, all must pass.** Run: `python -m pytest tests/ -v`
+- `tests/test_train_guard.py` — 2 tests (train.py import does NOT overwrite model artifacts)
+- **Total: 36 tests, all must pass.** Run: `python -m pytest tests/ -v`
 
-## Dashboard Tabs (11 total)
-STRATEGY, DRIVER BATTLE, STINT TELEMETRY, TRACK ANALYSIS, SC SIMULATOR, PIT ANALYSIS, CAR TELEMETRY, RESULTS, STANDINGS, RACE TIMELINE, AI ASSISTANT
+## Offline / Deployment Behavior (Streamlit Cloud)
+The app is deployed via share.streamlit.io (auto-redeploys on push to `master`).
+Cold-cache live FastF1 calls are the main cause of slow loads and CPU throttling,
+so tabs are built offline-first wherever committed data permits:
+- **RESULTS** — track list + per-race session list come from committed
+  `data/race_results.csv` (instant, offline). FastF1 used only as a fallback for
+  races not yet in the CSV.
+- **STANDINGS** — computed from committed `race_results.csv` via
+  `_csv_covers_completed()` (offline). No live schedule call on the hot path.
+- **STINT TELEMETRY** — already fully offline (simulator: `strategy_optimizer`
+  over `all_races_master.csv` + model pickles). No FastF1 involved.
+- **CAR TELEMETRY** — **live-only** by design. Per-metre Speed/Throttle/Brake/Gear/
+  DRS traces are never committed to the data pipeline. On FastF1 failure it shows a
+  friendly error + a *clearly-labeled* offline sector-speed comparison (committed
+  `all_races_master.csv` S1/S2/S3/AvgSpeed) — NOT full car telemetry. Persisting
+  FastF1 car telemetry to CSV is a known larger pipeline change, deferred.
+- **TRACK ANALYSIS / STRATEGY / SC SIM / DRIVER BATTLE / AI ASSISTANT** — fully
+  offline (committed CSV + pickles).
+
+## train.py guard (IMPORTANT)
+- `train.py` MUST run its Optuna training + `joblib.dump` only under
+  `if __name__ == "__main__"`. `test_wet_data.py` does `from train import FEATURES`;
+  importing train must NOT retrain or overwrite `xgb_master.pkl`.
+- A previous session had no guard: every `pytest` silently re-trained and overwrote
+  the model. `tests/test_train_guard.py` locks this in. Never reintroduce import-time
+  side effects in train.py.
 
 ## Session Split Recommendation
 - **ML & Model** — train.py, retraining, features, MAE work

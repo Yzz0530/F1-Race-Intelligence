@@ -297,3 +297,101 @@ def get_session_weather(session: Any) -> list[dict[str, Any]]:
         return result
     except Exception:
         return []
+
+
+def get_offline_sector_data(year: int, race: str, driver_codes: list[str]) -> dict[str, Any] | None:
+    """Offline sector-speed summary sourced from the committed master CSV.
+
+    High-frequency car telemetry (Speed/Throttle/Brake/Gear/DRS per metre of
+    distance) is only available live from fastf1 and was never persisted to the
+    data pipeline. This helper instead summaries the *committed* per-lap data
+    (best lap time + mean sector speeds) so the CAR TELEMETRY tab can offer a
+    clearly-labeled degraded view when fastf1 is unavailable/rate-limited, rather
+    than simply erroring out.
+
+    NOTE: this is NOT full car telemetry — it is a sector-speed comparison. The
+    UI must label it as such.
+    """
+    csv_path = os.path.join(_BASE, "data", "all_races_master.csv")
+    if not os.path.exists(csv_path):
+        return None
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception:
+        return None
+    sub = df[(df["Year"] == year) & (df["Race"] == race)]
+    if sub.empty:
+        return None
+    sector_cols = [c for c in ("S1_speed", "S2_speed", "S3_speed", "AvgSpeed")
+                   if c in sub.columns]
+    if not sector_cols:
+        return None
+
+    rows = []
+    for code in driver_codes:
+        d = sub[sub["Driver"] == code]
+        if d.empty:
+            continue
+        best_lap = d["LapTime"].min() if "LapTime" in d.columns else float("nan")
+        row = {"driver": code, "best_lap": best_lap}
+        for c in sector_cols:
+            row[c] = float(d[c].mean())
+        rows.append(row)
+    if not rows:
+        return None
+    return {"race": race, "year": year, "sector_cols": sector_cols, "drivers": rows}
+
+
+def plot_offline_sector_comparison(
+    data: dict[str, Any],
+    label_a: str = "Driver A",
+    label_b: str = "Driver B",
+) -> plt.Figure | None:
+    """Plot the offline sector-speed summary as a grouped bar chart.
+
+    Clearly a sector-speed comparison, not a car-telemetry trace. Returns a
+    matplotlib Figure for Streamlit embedding, or None if no data.
+    """
+    rows = data.get("drivers", [])
+    sector_cols = data.get("sector_cols", [])
+    if not rows or not sector_cols:
+        return None
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    fig.patch.set_facecolor("#0d0d0d")
+    ax.set_facecolor("#0d0d0d")
+
+    labels = {
+        "S1_speed": "Sector 1 Speed",
+        "S2_speed": "Sector 2 Speed",
+        "S3_speed": "Sector 3 Speed",
+        "AvgSpeed": "Avg Speed",
+    }
+    x = range(len(sector_cols))
+    colors = {"a": "#e10600", "b": "#3793ff"}
+    width = 0.35
+
+    for idx, (row, key, color) in enumerate(
+        zip(rows, ("a", "b"), (colors["a"], colors["b"]))
+    ):
+        if idx >= 2:
+            break
+        vals = [row.get(c, 0) for c in sector_cols]
+        label = row["driver"] if idx == 0 else row["driver"]
+        ax.bar([i + (idx - 0.5) * width for i in x], vals, width,
+               color=color, label=label, alpha=0.85)
+
+    ax.set_xticks(list(x))
+    ax.set_xticklabels([labels.get(c, c) for c in sector_cols], color="#999", fontsize=9)
+    ax.set_ylabel("Speed (km/h)", color="#555", fontsize=9)
+    ax.tick_params(colors="#444", labelsize=8)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
+    ax.spines["left"].set_color("#222")
+    ax.spines["bottom"].set_color("#222")
+    ax.set_title("Sector Speed Comparison (offline — committed data)",
+                 color="#eeeeee", fontsize=12, fontweight="bold", pad=12)
+    if len(rows) > 1:
+        ax.legend(facecolor="#151515", labelcolor="#aaa", fontsize=8,
+                  framealpha=0.95, edgecolor="#2a2a2a")
+    return fig
