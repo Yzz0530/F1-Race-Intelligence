@@ -23,10 +23,10 @@ Built as a portfolio project targeting motorsport analytics — combining ML, da
 ## Performance
 
 - **XGBoost (delta-from-baseline):** 0.88s MAE — 31 features, Optuna‑tuned (25 trials)
-- **Training data:** 29,800+ laps across 2025–2026 F1 seasons (24 races, 24 drivers)
+- **Training data:** 31,700+ laps across 2025–2026 F1 seasons (24 races, 24 drivers), including 800+ wet (INTERMEDIATE) laps from the 2025 Belgian GP
 - **Physics‑ML blend:** hybrid prediction (ML_WEIGHT=0.4) for known and unseen circuits
 - **Monte Carlo strategy engine:** configurable runs with SC/DNF modelling
-- **Compound differentiation:** model now ranks SOFT < MEDIUM < HARD correctly (fixed Aug 2026)
+- **Compound & wet differentiation:** model learns wet/dry separation from data (CompoundFamily_enc 0.43, IsWet 0.35 importance); dry slick spacing reinforced by physics overlay
 
 ## Pipeline
 
@@ -102,7 +102,15 @@ F1-Race-Intelligence/
 
 The model predicts **delta from race baseline** (how much faster/slower a lap is vs the race average), not absolute lap time. This forces the model to learn driver/car/race pace rather than memorizing per-driver-per-race means.
 
-**Important — compound/tyre effects are NOT learned from data.** The training set is entirely dry-weather slick laps (SOFT/MEDIUM/HARD), so the ML delta target does not separate compounds — a SOFT lap and a HARD lap for the same driver/race predict the same delta. **Compound ranking in the simulator therefore comes entirely from the physics overlay** (`race_physics.COMPOUND_DELTA` + degradation), blended at 60% weight in the strategy engine. The ML component captures driver/race/car pace; the physics overlay supplies the tyre strategy logic.
+**Important — compound/tyre effects are now partly learned from data.** As of the
+2025 Belgian GP wet-race ingestion, `all_races_master.csv` contains 800+ INTERMEDIATE
+(wet) laps. After retraining, the model assigns real importance to
+`CompoundFamily_enc` (0.43) and `IsWet` (0.35), so wet/dry separation is data-driven.
+Dry slick compounds (SOFT/MEDIUM/HARD) still rely partly on the physics overlay for
+their ±0.35/0/0.20s spacing, but the ML delta now also responds to compound/wet
+context. The training set is still mostly dry, so dry-compound separation is weaker
+in the learned signal than the physics overlay — both contribute in the 60% physics /
+40% ML blend.
 
 **Feature importance (top 10):** the ML model assigns weight to fuel/position/lap-progress/driver-form features. `Compound_enc` and `CompoundOrdinal` appear in the feature list but carry little learned signal on dry data — they are placeholders the physics overlay acts on.
 
@@ -110,8 +118,8 @@ The model predicts **delta from race baseline** (how much faster/slower a lap is
 
 ## Known Issues
 
-- **Dashboard sidebar (line 241):** claims "MAE 0.73s" — actual validation MAE is 0.88s. Deferred per user request.
-- **README performance section:** previously claimed 0.48s MAE — now updated to 0.88s.
+- **Dry-compound spacing is physics-led:** the model's learned delta still leans on the physics overlay for SOFT/MEDIUM/HARD ±0.35/0/0.20s spacing, since the training set is >95% dry. Wet separation is fully data-driven.
+- **FastF1 rate limits:** re-running `prepare_enhanced_data.py` fetches weather live; the FastF1 HTTP cache (`cache/`) is gitignored, so a cold run re-downloads.
 
 ## License
 

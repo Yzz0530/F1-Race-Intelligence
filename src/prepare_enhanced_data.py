@@ -225,10 +225,21 @@ def _clean_and_featurize(df: pd.DataFrame) -> pd.DataFrame:
     df = df.dropna(subset=["LapTime"])
     df = df[df["LapTime"] > 60]
 
-    # Per-race 107 % rule
-    df["MinRaceLap"] = df.groupby("Race")["LapTime"].transform("min")
-    df = df[df["LapTime"] <= df["MinRaceLap"] * 1.07]
-    df = df.drop(columns=["MinRaceLap"])
+    # 107% rule — computed per (Race, Compound), NOT per race.
+    # A wet race's fastest lap (~105s on INTERMEDIATE) is far slower than a
+    # dry slick lap, so comparing all compounds against the single race-fastest
+    # lap wrongly deletes 100% of wet laps (they sit well outside 107% of the
+    # dry best). Grouping by compound keeps each tyre's laps valid relative to
+    # its own fastest lap. TrackStatus!=1 (SC/VSC/red-flag) laps are excluded
+    # from the baseline minimum so a stoppage lap can't poison the cutoff.
+    # We mask LapTime to NaN on non-green laps, then groupby().transform("min")
+    # returns a full-index Series aligned to df (NaN where no green lap exists
+    # for that group, falling back to the overall compound min).
+    lap_green = df["LapTime"].where(df.get("TrackStatus", 1) == 1)
+    green_min = df.assign(_lg=lap_green).groupby(["Race", "Compound"])["_lg"].transform("min")
+    any_min = df.groupby(["Race", "Compound"])["LapTime"].transform("min")
+    safe_min = green_min.where(~green_min.isna(), any_min)
+    df = df[df["LapTime"] <= safe_min * 1.07]
 
     # Lap number within race
     df["LapInRace"] = df.groupby(["Race", "Driver"]).cumcount() + 1
