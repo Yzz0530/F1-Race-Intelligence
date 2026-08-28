@@ -7,17 +7,19 @@
 - **Run:** `python -m streamlit run src/dashboard.py --server.port 8501`
 
 ## Model & Data
-- **Model:** `models/xgb_master.pkl` — XGBoost, 250 trees, max_depth=5, lr=0.0123, 31 features
+- **Model:** `models/xgb_master.pkl` — XGBoost, ~300 trees (Optuna-tuned), 31 features
 - **Feature list:** `models/feature_list_master.pkl`
-- **Training data:** `data/all_races_master.csv` (~29,813 laps, 2025–2026, 24 races, 24 drivers)
+- **Training data:** `data/all_races_master.csv` (~31,700 laps, 2025–2026, 24 races, 24 drivers) incl. 806 wet (INTERMEDIATE) laps from 2025 Belgian GP
 - **Target:** delta from race baseline (not absolute lap time)
-- **Current MAE:** 0.88s (validation) — dashboard sidebar claims 0.73s (UNFIXED, per user request)
+- **Current MAE:** 0.876s (validation) — sidebar correctly shows 0.88s
+- **Wet handling:** model learns wet/dry from data (CompoundFamily_enc + IsWet top features). Dry slick spacing still reinforced by physics overlay.
 
 ## Pipeline
 ```
 download_all_races.py  →  prepare_enhanced_data.py  →  train.py  →  dashboard.py / optimizer
 (fastf1 ingestion)        (feature engineering)        (XGBoost + Optuna)
 ```
+- **Cleaning bug fixed:** 107% rule is now per (Race, Compound) + excludes TrackStatus!=1 laps, so wet laps survive instead of being 100% deleted.
 
 ## Physics Constants (`race_physics.py`)
 - PIT_LOSS: 22s (12s under SC)
@@ -31,8 +33,10 @@ download_all_races.py  →  prepare_enhanced_data.py  →  train.py  →  dashbo
 - Race baselines stored in `self.race_baselines` dict
 
 ## Tests
-- `tests/test_optimizer.py` — 24 tests, all must pass
-- Run: `python -m pytest tests/ -v`
+- `tests/test_optimizer.py` — 24 tests (strategy simulation, optimization, ML integration)
+- `tests/test_physics_improvements.py` — 6 tests (fuel, wet encoding, determinism, undercut)
+- `tests/test_wet_data.py` — 4 tests (wet-lap ingestion + retrained wet prediction)
+- **Total: 34 tests, all must pass.** Run: `python -m pytest tests/ -v`
 
 ## Dashboard Tabs (11 total)
 STRATEGY, DRIVER BATTLE, STINT TELEMETRY, TRACK ANALYSIS, SC SIMULATOR, PIT ANALYSIS, CAR TELEMETRY, RESULTS, STANDINGS, RACE TIMELINE, AI ASSISTANT
