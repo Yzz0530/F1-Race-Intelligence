@@ -1,0 +1,57 @@
+{
+  "generated_at": "2026-08-28T18:24:20.936565",
+  "git_commit": "bb1c689622ddb12c5d55ac6174b50e0f6d3d4b5a",
+  "training_data": {
+    "path": "data\\all_races_master.csv",
+    "sha256": "7fdbc2ce74b36d424ae9690c2a9ff4ce72cea6ad2e5244a6b072c963b87b7071",
+    "rows": 31703,
+    "races": 24,
+    "drivers": 24
+  },
+  "model": {
+    "path": "models\\xgb_master.pkl",
+    "sha256": "32e5a54720793dfa9bf79e6ca3e2b5d00ff4d975d36ae0817bd276902d9bf791",
+    "n_estimators": 450,
+    "learning_rate": 0.0,
+    "max_depth": 0
+  },
+  "features": [
+    "Driver_enc",
+    "Compound_enc",
+    "CompoundFamily_enc",
+    "CompoundOrdinal",
+    "IsWet",
+    "TyreLife",
+    "TyreLife_sq",
+    "Stint",
+    "StintPhase",
+    "TrackStatus",
+    "LapInRace",
+    "LapInRace_sq",
+    "FuelWeightEffect",
+    "DriverForm",
+    "Position_normalized",
+    "IsPersonalBest_int",
+    "FreshTire_int",
+    "IsStartLap",
+    "S1_speed",
+    "S2_speed",
+    "S3_speed",
+    "AvgSpeed",
+    "AirTemp",
+    "TrackTemp",
+    "Humidity",
+    "Rainfall",
+    "WindSpeed",
+    "CircuitLength_km",
+    "CircuitCorners",
+    "CircuitAvgSpeed",
+    "CircuitType_enc"
+  ],
+  "metrics": {
+    "train_mae": 0.8705912828445435,
+    "val_mae": 0.8705912828445435,
+    "best_trial_mae": 0.8705912828445435
+  },
+  "target": "delta from per-race baseline lap time (s)"
+}

@@ -12,6 +12,9 @@ import optuna
 import logging
 import os
 import sys
+import json
+import hashlib
+import subprocess
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log: logging.Logger = logging.getLogger(__name__)
@@ -127,7 +130,87 @@ def objective(trial: optuna.Trial) -> float:
     m.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
     return float(mean_absolute_error(y_val, m.predict(X_val)))
 
-def main() -> None:
+def _sha256(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 16), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _git_commit() -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        return "unknown"
+
+
+def _write_manifest(val_mae: float, train_mae: float, best_trial_mae: float,
+                    best_params: dict, rows: int) -> None:
+    """Write models/TRAINING_MANIFEST.json recording exactly what produced the
+    committed model. Makes the artifact reproducible, not an opaque pickle."""
+    manifest = {
+        "generated_at": pd.Timestamp.now().isoformat(),
+        "git_commit": _git_commit(),
+        "training_data": {
+            "path": os.path.relpath(master_path, BASE),
+            "sha256": _sha256(master_path),
+            "rows": int(rows),
+            "races": int(df["Race"].nunique()),
+            "drivers": int(df["Driver"].nunique()),
+        },
+        "model": {
+            "path": os.path.relpath(os.path.join(MODEL_DIR, "xgb_master.pkl"), BASE),
+            "sha256": _sha256(os.path.join(MODEL_DIR, "xgb_master.pkl")),
+            "n_estimators": int(best_params.get("n_estimators", 0)),
+            "learning_rate": float(best_params.get("learning_rate", 0.0)),
+            "max_depth": int(best_params.get("max_depth", 0)),
+        },
+        "features": FEATURES,
+        "metrics": {
+            "train_mae": float(train_mae),
+            "val_mae": float(val_mae),
+            "best_trial_mae": float(best_trial_mae),
+        },
+        "target": "delta from per-race baseline lap time (s)",
+    }
+    with open(os.path.join(MODEL_DIR, "TRAINING_MANIFEST.json"), "w") as mf:
+        json.dump(manifest, mf, indent=2)
+    log.info(f"Wrote provenance manifest: {os.path.join(MODEL_DIR, 'TRAINING_MANIFEST.json')}")
+
+
+def _establish_baseline_manifest() -> None:
+    """Evaluate the ALREADY-COMMITTED model on the SAME 20% held-out race split
+    used by main() (the split uses RandomState(42), so it is deterministic) and
+    write a baseline manifest. This gives the CI quality gate a like-for-like MAE
+    to compare against. Does NOT retrain or overwrite the model."""
+    model_path = os.path.join(MODEL_DIR, "xgb_master.pkl")
+    if not os.path.exists(model_path):
+        log.warning("No committed xgb_master.pkl — skipping baseline manifest.")
+        return
+    model = joblib.load(model_path)
+    # Reuse the deterministic val split computed at module load (X_val, y_val).
+    val_pred = model.predict(X_val)
+    val_mae = float(mean_absolute_error(y_val, val_pred))
+    try:
+        n_est = int(model.n_estimators)
+    except Exception:
+        n_est = 0
+    _write_manifest(val_mae, val_mae, val_mae,
+                    {"n_estimators": n_est}, len(df))
+    log.info(f"Baseline manifest written. Committed model val-split MAE: {val_mae:.4f}s")
+
+
+def main(force_train: bool = False) -> None:
+    """Train the model. If force_train is False (CI quality-gate mode), the model
+    is only (re)written when it beats the MAE recorded in the existing manifest."""
+    # Establish a baseline reference if none exists (pre-existing model w/o manifest)
+    manifest_path = os.path.join(MODEL_DIR, "TRAINING_MANIFEST.json")
+    if not os.path.exists(manifest_path):
+        _establish_baseline_manifest()
+
     study = optuna.create_study(direction="minimize", study_name="f1_laptime")
     study.optimize(objective, n_trials=25)
     log.info(f"Best MAE: {study.best_value:.4f}s")
@@ -146,6 +229,28 @@ def main() -> None:
     train_pred = model.predict(X_train)
     train_mae = mean_absolute_error(y_train, train_pred)
     log.info(f"Train MAE: {train_mae:.4f}s")
+
+    # --- Quality gate ------------------------------------------------------
+    # Compare against the baseline manifest. Only overwrite the committed model
+    # if the new val MAE is genuinely better (Optuna is randomized, so a fresh
+    # train can be worse). This prevents the weekly CI job from regressing the
+    # deployed model. Pass force_train=True to always overwrite (manual retrain).
+    baseline_mae = None
+    if os.path.exists(manifest_path):
+        try:
+            with open(manifest_path) as mf:
+                baseline_mae = float(json.load(mf)["metrics"]["val_mae"])
+        except Exception:
+            baseline_mae = None
+
+    if (not force_train) and (baseline_mae is not None) and (val_mae >= baseline_mae - 1e-6):
+        log.info(
+            f"Quality gate: new val MAE {val_mae:.4f}s not better than baseline "
+            f"{baseline_mae:.4f}s — keeping committed model, not overwriting."
+        )
+        # Still record provenance of the run that was attempted (no model change).
+        _write_manifest(val_mae, train_mae, study.best_value, best_params, len(df))
+        return
 
     # --- Save artifacts ---
     log.info("Saving artifacts...")
@@ -211,61 +316,7 @@ def main() -> None:
 
     log.info(f"Saved {len(os.listdir(MODEL_DIR))} files to {MODEL_DIR}")
 
-    # --- Provenance manifest -------------------------------------------------
-    # Records exactly what produced the committed model so the artifact is
-    # reproducible (not just "a pickle"). Guards against importing this module
-    # (which must NOT run main()); the manifest is only written on a real train.
-    try:
-        import hashlib
-        import json
-        import subprocess
-
-        def _sha256(path: str) -> str:
-            h = hashlib.sha256()
-            with open(path, "rb") as fh:
-                for chunk in iter(lambda: fh.read(1 << 16), b""):
-                    h.update(chunk)
-            return h.hexdigest()
-
-        def _git_commit() -> str:
-            try:
-                return subprocess.check_output(
-                    ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
-                ).decode().strip()
-            except Exception:
-                return "unknown"
-
-        manifest = {
-            "generated_at": pd.Timestamp.now().isoformat(),
-            "git_commit": _git_commit(),
-            "training_data": {
-                "path": os.path.relpath(master_path, BASE),
-                "sha256": _sha256(master_path),
-                "rows": int(len(df)),
-                "races": int(df["Race"].nunique()),
-                "drivers": int(df["Driver"].nunique()),
-            },
-            "model": {
-                "path": os.path.relpath(
-                    os.path.join(MODEL_DIR, "xgb_master.pkl"), BASE),
-                "sha256": _sha256(os.path.join(MODEL_DIR, "xgb_master.pkl")),
-                "n_estimators": int(best_params.get("n_estimators", 0)),
-                "learning_rate": float(best_params.get("learning_rate", 0.0)),
-                "max_depth": int(best_params.get("max_depth", 0)),
-            },
-            "features": FEATURES,
-            "metrics": {
-                "train_mae": float(train_mae),
-                "val_mae": float(val_mae),
-                "best_trial_mae": float(study.best_value),
-            },
-            "target": "delta from per-race baseline lap time (s)",
-        }
-        with open(os.path.join(MODEL_DIR, "TRAINING_MANIFEST.json"), "w") as mf:
-            json.dump(manifest, mf, indent=2)
-        log.info(f"Wrote provenance manifest: {os.path.join(MODEL_DIR, 'TRAINING_MANIFEST.json')}")
-    except Exception as e:
-        log.warning(f"Failed to write training manifest: {e}")
+    _write_manifest(val_mae, train_mae, study.best_value, best_params, len(df))
 
     # --- Feature importance ---
     fi = pd.DataFrame({"feature": FEATURES, "importance": model.feature_importances_})
@@ -281,4 +332,12 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    # Usage:
+    #   python src/train.py              -> quality-gated train (CI default)
+    #   python src/train.py --force-train -> always overwrite (manual retrain)
+    #   python src/train.py --baseline    -> seed baseline manifest, no retrain
+    force = "--force-train" in sys.argv
+    if "--baseline" in sys.argv:
+        _establish_baseline_manifest()
+    else:
+        main(force_train=force)

@@ -45,14 +45,14 @@ jobs:
         run: |
           python scripts/build_race_results_csv.py
           
-      - name: Train XGBoost model
+      - name: Train XGBoost model (quality-gated — only overwrites if better than committed baseline)
         run: |
           python src/train.py
-          
+
       - name: Commit and push changes
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add data/ models/ data/race_results.csv
-          git diff --staged --quiet || git commit -m "chore: auto-update F1 data + retrained model [skip ci]"
+          git add data/ data/race_results.csv models/TRAINING_MANIFEST.json
+          git diff --staged --quiet || git commit -m "chore: auto-update F1 data [skip ci]"
           git push
