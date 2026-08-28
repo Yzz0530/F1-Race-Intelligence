@@ -388,6 +388,8 @@ class StrategyAssistant:
         # Fallback: general analysis
         return (
             f"## 🏎️ Strategy Analysis — {driver} @ {track}\n\n"
+            f"*Estimates below come from a physics + ML blend (XGBoost pace/degradation "
+            f"plus a compound-speed physics overlay), not live timing.*\n\n"
             f"I can answer questions like:\n"
             f"- *Should I pit this lap?*\n"
             f"- *What's the fastest strategy for this race?*\n"

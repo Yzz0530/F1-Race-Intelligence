@@ -198,8 +198,8 @@ def main() -> None:
         "Chinese Grand Prix": "Shanghai International Circuit",
     }
     circuit_info = {}
-    for race, circuit in race_to_circuit.items():
-        row = circuits_df[circuits_df["Circuit"] == circuit]
+    for race, circuit_name in race_to_circuit.items():
+        row = circuits_df[circuits_df["Circuit"] == circuit_name]
         if not row.empty:
             circuit_info[race] = {
                 "Length_km": row["Length_km"].values[0],
@@ -210,6 +210,62 @@ def main() -> None:
     joblib.dump(circuit_info, os.path.join(MODEL_DIR, "circuit_info.pkl"))
 
     log.info(f"Saved {len(os.listdir(MODEL_DIR))} files to {MODEL_DIR}")
+
+    # --- Provenance manifest -------------------------------------------------
+    # Records exactly what produced the committed model so the artifact is
+    # reproducible (not just "a pickle"). Guards against importing this module
+    # (which must NOT run main()); the manifest is only written on a real train.
+    try:
+        import hashlib
+        import json
+        import subprocess
+
+        def _sha256(path: str) -> str:
+            h = hashlib.sha256()
+            with open(path, "rb") as fh:
+                for chunk in iter(lambda: fh.read(1 << 16), b""):
+                    h.update(chunk)
+            return h.hexdigest()
+
+        def _git_commit() -> str:
+            try:
+                return subprocess.check_output(
+                    ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
+                ).decode().strip()
+            except Exception:
+                return "unknown"
+
+        manifest = {
+            "generated_at": pd.Timestamp.now().isoformat(),
+            "git_commit": _git_commit(),
+            "training_data": {
+                "path": os.path.relpath(master_path, BASE),
+                "sha256": _sha256(master_path),
+                "rows": int(len(df)),
+                "races": int(df["Race"].nunique()),
+                "drivers": int(df["Driver"].nunique()),
+            },
+            "model": {
+                "path": os.path.relpath(
+                    os.path.join(MODEL_DIR, "xgb_master.pkl"), BASE),
+                "sha256": _sha256(os.path.join(MODEL_DIR, "xgb_master.pkl")),
+                "n_estimators": int(best_params.get("n_estimators", 0)),
+                "learning_rate": float(best_params.get("learning_rate", 0.0)),
+                "max_depth": int(best_params.get("max_depth", 0)),
+            },
+            "features": FEATURES,
+            "metrics": {
+                "train_mae": float(train_mae),
+                "val_mae": float(val_mae),
+                "best_trial_mae": float(study.best_value),
+            },
+            "target": "delta from per-race baseline lap time (s)",
+        }
+        with open(os.path.join(MODEL_DIR, "TRAINING_MANIFEST.json"), "w") as mf:
+            json.dump(manifest, mf, indent=2)
+        log.info(f"Wrote provenance manifest: {os.path.join(MODEL_DIR, 'TRAINING_MANIFEST.json')}")
+    except Exception as e:
+        log.warning(f"Failed to write training manifest: {e}")
 
     # --- Feature importance ---
     fi = pd.DataFrame({"feature": FEATURES, "importance": model.feature_importances_})

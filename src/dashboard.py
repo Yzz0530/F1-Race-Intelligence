@@ -1024,6 +1024,17 @@ elif active_tab == "AI ASSISTANT":
     if custom_q:
         ai_query = custom_q
 
+    # Honesty disclaimer: the strategy engine blends ML + a physics overlay.
+    # Wet pace/degradation is learned from data; compound *spacing* (SOFT/MEDIUM/
+    # HARD deltas) is a physics overlay, not a pure ML prediction. State this so
+    # the assistant never presents physics-overlay numbers as "model output".
+    st.caption(
+        "ℹ️ Strategy is a **physics + ML blend**. Pace, degradation and wet "
+        "conditions come from the trained model; compound speed deltas "
+        "(SOFT/MEDIUM/HARD) are a physics overlay, not a pure ML prediction. "
+        "Treat outputs as engineering estimates, not certainty."
+    )
+
     if ai_query:
         with st.spinner("Analyzing..."):
             result = assistant.ask(

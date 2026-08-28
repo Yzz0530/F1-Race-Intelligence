@@ -54,9 +54,26 @@ so tabs are built offline-first wherever committed data permits:
   DRS traces are never committed to the data pipeline. On FastF1 failure it shows a
   friendly error + a *clearly-labeled* offline sector-speed comparison (committed
   `all_races_master.csv` S1/S2/S3/AvgSpeed) — NOT full car telemetry. Persisting
-  FastF1 car telemetry to CSV is a known larger pipeline change, deferred.
+  FastF1 car telemetry to CSV is a known larger pipeline change, deferred (see
+  docs/PLAN_TELEMETRY_PIPELINE.md).
 - **TRACK ANALYSIS / STRATEGY / SC SIM / DRIVER BATTLE / AI ASSISTANT** — fully
   offline (committed CSV + pickles).
+- **Scheduled data refresh ALREADY EXISTS:** `.github/workflows/update-data.yml`
+  runs weekly (Mon 09:00 UTC) + manual dispatch, and re-ingests results, retrains,
+  and commits. `.github/workflows/ci.yml` runs `pytest` on push/PR. Keep both in
+  sync when changing the pipeline.
+
+## Model Provenance (IMPORTANT)
+- `train.py` writes `models/TRAINING_MANIFEST.json` on every real train run: data
+  sha256 + git commit + MAE + n_estimators + feature list. The committed model is
+  therefore a reproducible artifact, not an opaque pickle. Read the manifest
+  before trusting `xgb_master.pkl`.
+
+## AI Assistant honesty
+- The strategy engine is a **physics + ML blend**. Pace/degradation/wet come from
+  the XGBoost model; compound speed deltas (SOFT/MEDIUM/HARD) are a physics
+  overlay, NOT a pure ML prediction. The AI tab shows a disclaimer and the assistant
+  fallback states this explicitly. Never present overlay numbers as "model output".
 
 ## train.py guard (IMPORTANT)
 - `train.py` MUST run its Optuna training + `joblib.dump` only under
