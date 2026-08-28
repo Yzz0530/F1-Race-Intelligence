@@ -238,7 +238,7 @@ with st.sidebar:
         "<div style='color:var(--text-muted);font-size:0.7rem;line-height:1.7;'>"
         "<span style='color:var(--text-dim);font-size:0.6rem;letter-spacing:0.5px;text-transform:uppercase;'>Technology Stack</span><br>"
         "XGBoost · Monte Carlo · Physics Engine<br>"
-        "<span style='color:var(--text-dim);font-size:0.6em;'>MAE 0.88s · 31 features · 29,813 laps</span></div>",
+        "<span style='color:var(--text-dim);font-size:0.6em;'>MAE 0.88s · 31 features · 31,703 laps</span></div>",
         unsafe_allow_html=True,
 
     )

@@ -309,24 +309,31 @@ def simulate_sc_scenario(
     # Baseline: normal race
     base_times, base_total = race_time_estimate(total_laps, base_lap_time, compound, track_temp)
 
-    # SC scenario
+    # SC scenario — track tyre age across the whole race, resetting after under-SC pit
     sc_times: list[float] = []
     sc_pit_lap = sc_lap if sc_free_pit else None
+    tyre_age = 1  # lap 1 of a fresh stint
 
     for lap in range(1, total_laps + 1):
         if sc_lap <= lap < sc_lap + sc_duration:
-            # Under SC
-            lt = base_lap_time + sc_slow + fuel_effect(lap, total_laps)
-            # Check for pit under SC
+            # Under SC — slow laps regardless of tyre state
             if sc_free_pit and lap == sc_lap:
-                lt += PIT_LOSS_SAFETY_CAR  # cheaper pit
+                # Pit under SC: pay reduced pit loss, then restart on fresh tyres
+                lt = base_lap_time + sc_slow + PIT_LOSS_SAFETY_CAR
+                tyre_age = 1  # fresh tyres from the pit stop
+            else:
+                lt = base_lap_time + sc_slow
             sc_times.append(lt)
+            tyre_age += 1  # SC laps still age tyres (slowly)
         else:
-            lt = base_lap_time + compound_delta(compound) + tyre_degradation(compound, lap)
-            lt += fuel_effect(lap, total_laps) + track_temp_effect(track_temp)
-            if sc_free_pit and sc_lap < lap < sc_lap + 2:
-                pass  # already pitted
+            # Green-flag lap — apply full tyre model with current tyre_age
+            lt = base_lap_time
+            lt += compound_delta(compound)
+            lt += tyre_degradation(compound, tyre_age)
+            lt += fuel_effect(lap, total_laps)
+            lt += track_temp_effect(track_temp)
             sc_times.append(lt)
+            tyre_age += 1
 
     sc_total = sum(sc_times)
     time_saved = base_total - sc_total

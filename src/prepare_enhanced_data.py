@@ -241,6 +241,14 @@ def _clean_and_featurize(df: pd.DataFrame) -> pd.DataFrame:
     safe_min = green_min.where(~green_min.isna(), any_min)
     df = df[df["LapTime"] <= safe_min * 1.07]
 
+    # Deduplicate — keep the fastest lap per (Race, Driver, Year, Stint, TyreLife).
+    # Same-stint duplicates with identical tyre config add no information and
+    # would bias the model toward races with more duplicate records.
+    df = df.sort_values("LapTime").drop_duplicates(
+        subset=["Race", "Driver", "Year", "Stint", "TyreLife"],
+        keep="first",
+    )
+
     # Lap number within race
     df["LapInRace"] = df.groupby(["Race", "Driver"]).cumcount() + 1
 

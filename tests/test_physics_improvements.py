@@ -33,11 +33,11 @@ class TestImprovements(unittest.TestCase):
         we assert on the isolated physics fuel delta, which must be >1.2s.
         """
         # Isolated fuel physics: lap 1 vs lap 52, no tyre degradation, no ML.
-        d1 = self.opt._physics_delta(self.driver, "MEDIUM", 1, 1, False)
-        d52 = self.opt._physics_delta(self.driver, "MEDIUM", 1, 52, False)
+        d1 = self.opt._physics_delta(self.driver, "MEDIUM", 1, 1, 52, False)
+        d52 = self.opt._physics_delta(self.driver, "MEDIUM", 1, 52, 52, False)
         fuel_decay = d52 - d1  # negative = faster at end of race
-        self.assertLess(fuel_decay, -1.2, "Fuel effect should exceed 1.2s/race")
-        self.assertGreater(fuel_decay, -3.0, "Fuel effect should not exceed ~3s/race")
+        self.assertLess(fuel_decay, -2.5, "Fuel effect should exceed 2.5s/race")
+        self.assertGreater(fuel_decay, -4.5, "Fuel effect should not exceed ~4.5s/race")
 
     def test_intermediate_is_distinct_and_slower(self) -> None:
         """INTERMEDIATE must simulate separately and slower than dry slicks."""

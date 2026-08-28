@@ -19,6 +19,7 @@ from typing import Any
 import joblib
 import numpy as np
 import pandas as pd
+from race_physics import fuel_effect as _race_fuel_effect
 
 warnings = __import__("warnings")
 warnings.filterwarnings("ignore")
@@ -35,7 +36,6 @@ COMPOUND_MAP: dict[str, str] = {"SOFT": "DRY", "MEDIUM": "DRY", "HARD": "DRY", "
 class F1StrategyOptimizer:
     COMPOUND_SPEED: dict[str, float] = {"SOFT": -0.35, "MEDIUM": 0.0, "HARD": 0.20, "INTERMEDIATE": 1.20}
     TIRE_DEG_RATE: dict[str, float] = {"SOFT": 0.08, "MEDIUM": 0.045, "HARD": 0.025, "INTERMEDIATE": 0.05}
-    FUEL_BURN: float = -0.035  # seconds per lap from fuel burn (race_physics.FUEL_TIME_PER_KG)
     OUT_LAP_PENALTY: float = 0.5
     PIT_LOSS: float = 22.0
     ML_WEIGHT: float = 0.4  # blend between ML and physics; 1.0 = pure ML
@@ -92,7 +92,7 @@ class F1StrategyOptimizer:
             "CompoundFamily_enc": fam_encoded,
             "IsWet": 1.0 if is_wet else 0.0,
             "TrackStatus": 1.0,
-            "DriverForm": driver_form * 0.15,
+            "DriverForm": driver_form,
             "Position_normalized": fb.get("Position_normalized", 0.5),
             "IsPersonalBest_int": 0.0,
             "S1_speed": fb.get("S1_speed", 120.0),
@@ -143,10 +143,10 @@ class F1StrategyOptimizer:
         return M
 
     def _physics_delta(self, driver: str, compound: str, lap_in_stint: int,
-                       lap_number: int, sc_active: bool = False) -> float:
+                       lap_number: int, total_laps: int, sc_active: bool = False) -> float:
         base_speed = self.COMPOUND_SPEED[compound]
         tire_deg = self.TIRE_DEG_RATE[compound] * (lap_in_stint - 1)
-        fuel = self.FUEL_BURN * lap_number
+        fuel = _race_fuel_effect(lap_number, total_laps)  # properly models 110kg start, 2.5kg/lap burn
         out_lap = self.OUT_LAP_PENALTY if lap_in_stint == 1 else 0.0
         driver_off = self.driver_offsets.get(driver, 0.0)
         sc_delta = 3.0 if sc_active else 0.0
@@ -200,10 +200,10 @@ class F1StrategyOptimizer:
                     # Convert delta prediction back to absolute lap time
                     base_for_race = self.race_baselines.get(race_name, self.overall_baseline)
                     ml_lt += base_for_race
-                    phys_delta = self._physics_delta(driver, compound, lis, lap_number, sc_active)
+                    phys_delta = self._physics_delta(driver, compound, lis, lap_number, total_laps, sc_active)
                     lt = ml_lt + (1.0 - self.ML_WEIGHT) * phys_delta + noise
                 else:
-                    lt = self.overall_baseline + self._physics_delta(driver, compound, lis, lap_number, sc_active) + noise
+                    lt = self.overall_baseline + self._physics_delta(driver, compound, lis, lap_number, total_laps, sc_active) + noise
                 times.append(lt)
                 total_time += lt
                 lap_number += 1
@@ -305,16 +305,19 @@ class F1StrategyOptimizer:
         for strat in strategies:
             key = str(strat)
             feat_mat = strat_matrices.get(key)
+            if feat_mat is not None:
+                try:
+                    ml_preds = self.xgb_model.predict(feat_mat)
+                except Exception:
+                    ml_preds = None
+            else:
+                ml_preds = None
             times: list[float] = []
             for _ in range(mc_runs):
                 rng = np.random.RandomState(1234 + _)
-                if feat_mat is not None:
-                    try:
-                        ml_preds = self.xgb_model.predict(feat_mat)
-                        r = self._simulate_from_ml(race_name, total_laps, driver, strat,
-                                                    ml_preds, pit_loss=None, rng=rng, sc_prob=sc_prob, dnf_prob=dnf_prob)
-                    except Exception:
-                        r = None
+                if ml_preds is not None:
+                    r = self._simulate_from_ml(race_name, total_laps, driver, strat,
+                                                ml_preds, pit_loss=None, rng=rng, sc_prob=sc_prob, dnf_prob=dnf_prob)
                 else:
                     r = self.simulate_strategy(race_name, total_laps, driver, strat,
                                                rng=rng, sc_prob=sc_prob, dnf_prob=dnf_prob)
