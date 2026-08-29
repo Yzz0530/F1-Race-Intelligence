@@ -7,11 +7,11 @@
 - **Run:** `python -m streamlit run src/dashboard.py --server.port 8501`
 
 ## Model & Data
-- **Model:** `models/xgb_master.pkl` — XGBoost, ~300 trees (Optuna-tuned), 31 features
+- **Model:** `models/xgb_master.pkl` — XGBoost, **450 trees** (Optuna-tuned), 31 features. See `models/TRAINING_MANIFEST.json` for the authoritative current values (n_estimators, val MAE, training-data sha256, git commit).
 - **Feature list:** `models/feature_list_master.pkl`
 - **Training data:** `data/all_races_master.csv` (~31,700 laps, 2025–2026, 24 races, 24 drivers) incl. 806 wet (INTERMEDIATE) laps from 2025 Belgian GP
 - **Target:** delta from race baseline (not absolute lap time)
-- **Current MAE:** 0.876s (validation) — sidebar correctly shows 0.88s
+- **Current MAE:** **0.8706s** (val-split, per `models/TRAINING_MANIFEST.json`). The sidebar reads this dynamically from the manifest — do NOT hard-code a different number in the UI.
 - **Wet handling:** model learns wet/dry from data (CompoundFamily_enc + IsWet top features). Dry slick spacing still reinforced by physics overlay.
 
 ## Pipeline

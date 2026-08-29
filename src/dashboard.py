@@ -234,11 +234,20 @@ with st.sidebar:
     _render_active_circuit()
 
     st.markdown("<hr>", unsafe_allow_html=True)
+    # MAE shown in the footer should reflect the actually-committed model, not a
+    # hard-coded number. Read it from the training manifest if present.
+    try:
+        import json as _json
+        with open(os.path.join(_BASE, "models", "TRAINING_MANIFEST.json")) as _mf:
+            _mae = _json.load(_mf)["metrics"]["val_mae"]
+        _mae_txt = f"{_mae:.2f}s"
+    except Exception:
+        _mae_txt = "0.88s"
     st.markdown(
         "<div style='color:var(--text-muted);font-size:0.7rem;line-height:1.7;'>"
         "<span style='color:var(--text-dim);font-size:0.6rem;letter-spacing:0.5px;text-transform:uppercase;'>Technology Stack</span><br>"
         "XGBoost · Monte Carlo · Physics Engine<br>"
-        "<span style='color:var(--text-dim);font-size:0.6em;'>MAE 0.88s · 31 features · 31,703 laps</span></div>",
+        f"<span style='color:var(--text-dim);font-size:0.6em;'>MAE {_mae_txt} · 31 features · 31,703 laps</span></div>",
         unsafe_allow_html=True,
 
     )
