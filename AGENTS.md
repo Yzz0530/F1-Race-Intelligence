@@ -3,7 +3,7 @@
 ## Setup
 - **Location:** `C:\Users\tyz20\OneDrive\Desktop\F1\F1-Race-Intelligence`
 - **System Python:** `C:\Users\tyz20\AppData\Local\Programs\Python\Python312\python.exe` (NOT Hermes venv)
-- **Dashboard:** `src/dashboard.py` — Streamlit, 11 tabs, port 8501
+- **Dashboard:** `src/dashboard.py` — thin Streamlit shell (page config, sidebar, tab router). Tab logic lives in `src/tabs/` (one module per tab: `strategy`, `driver_battle`, `stint_telemetry`, `track_analysis`, `sc_simulator`, `pit_analysis`, `car_telemetry`, `ai_assistant`) plus `src/tabs/_shared.py` for constants/helpers/cached resources. 11 tabs, port 8501.
 - **Run:** `python -m streamlit run src/dashboard.py --server.port 8501`
 
 ## Model & Data
@@ -16,8 +16,9 @@
 
 ## Pipeline
 ```
-download_all_races.py  →  prepare_enhanced_data.py  →  train.py  →  dashboard.py / optimizer
+download_all_races.py  →  prepare_enhanced_data.py  →  train.py  →  dashboard.py (src/tabs/*) / optimizer
 (fastf1 ingestion)        (feature engineering)        (XGBoost + Optuna)
+scripts/build_telemetry_cache.py  →  data/telemetry/*.parquet  (offline CAR TELEMETRY traces)
 ```
 - **Cleaning bug fixed:** 107% rule is now per (Race, Compound) + excludes TrackStatus!=1 laps, so wet laps survive instead of being 100% deleted.
 
@@ -37,7 +38,8 @@ download_all_races.py  →  prepare_enhanced_data.py  →  train.py  →  dashbo
 - `tests/test_physics_improvements.py` — 6 tests (fuel, wet encoding, determinism, undercut)
 - `tests/test_wet_data.py` — 4 tests (wet-lap ingestion + retrained wet prediction)
 - `tests/test_train_guard.py` — 2 tests (train.py import does NOT overwrite model artifacts)
-- **Total: 36 tests, all must pass.** Run: `python -m pytest tests/ -v`
+- `tests/test_recent_fixes.py` — 13 tests (SC like-for-like, traffic model, pit-window optimizer, rain routing, dry-excludes-INTERMEDIATE, dead-code removal, offline telemetry loader)
+- **Total: 49 tests, all must pass.** Run: `python -m pytest tests/ -v`
 
 ## Offline / Deployment Behavior (Streamlit Cloud)
 The app is deployed via share.streamlit.io (auto-redeploys on push to `master`).
@@ -50,12 +52,14 @@ so tabs are built offline-first wherever committed data permits:
   `_csv_covers_completed()` (offline). No live schedule call on the hot path.
 - **STINT TELEMETRY** — already fully offline (simulator: `strategy_optimizer`
   over `all_races_master.csv` + model pickles). No FastF1 involved.
-- **CAR TELEMETRY** — **live-only** by design. Per-metre Speed/Throttle/Brake/Gear/
-  DRS traces are never committed to the data pipeline. On FastF1 failure it shows a
-  friendly error + a *clearly-labeled* offline sector-speed comparison (committed
-  `all_races_master.csv` S1/S2/S3/AvgSpeed) — NOT full car telemetry. Persisting
-  FastF1 car telemetry to CSV is a known larger pipeline change, deferred (see
-  docs/PLAN_TELEMETRY_PIPELINE.md).
+- **CAR TELEMETRY** — **live-first, offline-capable.** Per-metre Speed/Throttle/Brake/Gear/
+  DRS traces are fetched live from FastF1, but `scripts/build_telemetry_cache.py` (run in CI)
+  commits a fastest-lap trace per (Year, Race, Driver) to `data/telemetry/*.parquet`. On
+  FastF1 failure the tab loads those committed traces via `load_cached_telemetry()` (clearly
+  labeled), and only if neither exists does it fall back to the *sector-speed* comparison
+  (committed `all_races_master.csv` S1/S2/S3/AvgSpeed) — still NOT full car telemetry. The
+  parquet cache is the realized form of the deferred telemetry-persistence work
+  (docs/PLAN_TELEMETRY_PIPELINE.md).
 - **TRACK ANALYSIS / STRATEGY / SC SIM / DRIVER BATTLE / AI ASSISTANT** — fully
   offline (committed CSV + pickles).
 - **Scheduled data refresh ALREADY EXISTS:** `.github/workflows/update-data.yml`
@@ -85,8 +89,8 @@ so tabs are built offline-first wherever committed data permits:
 
 ## Session Split Recommendation
 - **ML & Model** — train.py, retraining, features, MAE work
-- **Dashboard UI** — dashboard.py, tabs, styling, layout
+- **Dashboard UI** — dashboard.py (shell), src/tabs/* (tab logic), styling, layout
 - **Strategy Engine** — strategy_optimizer.py, race_physics.py, undercut_analyzer.py
-- **Data Pipeline** — download_all_races.py, prepare_enhanced_data.py
+- **Data Pipeline** — download_all_races.py, prepare_enhanced_data.py, scripts/build_telemetry_cache.py
 - **AI Assistant** — strategy_assistant.py, Q&A routing
 - **General** — overview, planning, cross-cutting

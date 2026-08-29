@@ -31,8 +31,9 @@ Built as a portfolio project targeting motorsport analytics — combining ML, da
 ## Pipeline
 
 ```text
-download_all_races.py  →  prepare_enhanced_data.py  →  train.py  →  dashboard.py / optimizer
+download_all_races.py  →  prepare_enhanced_data.py  →  train.py  →  dashboard.py (src/tabs/*) / optimizer
 (fastf1 ingestion)        (feature engineering)        (XGBoost + Optuna)
+scripts/build_telemetry_cache.py  →  data/telemetry/*.parquet  (offline CAR TELEMETRY traces)
 ```
 
 ## Usage
@@ -65,7 +66,17 @@ python -m pytest tests/ -v
 ```
 F1-Race-Intelligence/
 ├── src/
-│   ├── dashboard.py          # Streamlit dashboard (11 tabs)
+│   ├── dashboard.py          # Streamlit shell (page config, sidebar, tab router)
+│   ├── tabs/                 # One module per tab + _shared helpers
+│   │   ├── strategy.py
+│   │   ├── driver_battle.py
+│   │   ├── stint_telemetry.py
+│   │   ├── track_analysis.py
+│   │   ├── sc_simulator.py
+│   │   ├── pit_analysis.py
+│   │   ├── car_telemetry.py
+│   │   ├── ai_assistant.py
+│   │   └── _shared.py
 │   ├── train.py              # XGBoost training with Optuna
 │   ├── strategy_optimizer.py # Monte Carlo strategy simulation
 │   ├── strategy_assistant.py # AI strategy Q&A
@@ -73,7 +84,7 @@ F1-Race-Intelligence/
 │   ├── undercut_analyzer.py  # Undercut/overcut analysis
 │   ├── results.py            # Live race results (fastf1)
 │   ├── standings.py          # Championship standings
-│   ├── telemetry_loader.py   # Car telemetry (fastf1)
+│   ├── telemetry_loader.py   # Car telemetry (fastf1 + committed parquet cache)
 │   ├── race_timeline.py      # Race timeline visualization
 │   ├── style.css             # Dashboard stylesheet
 │   └── __init__.py
