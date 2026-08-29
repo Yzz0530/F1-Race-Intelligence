@@ -276,8 +276,15 @@ class F1StrategyOptimizer:
         mc_runs: int = 1,
         sc_prob: float = 0.0,
         dnf_prob: float = 0.0,
+        wet: bool = False,
     ) -> list[_OptResult]:
-        compounds = ["SOFT", "MEDIUM", "HARD", "INTERMEDIATE"]
+        # On a dry race, INTERMEDIATE is ~1.2s/lap slower than slicks and never
+        # wins — enumerating 1/2/3-stop INTERMEDIATE combinations just wastes
+        # Monte Carlo compute (they all rank last and get filtered out). Keep it
+        # only when the caller flags the race wet (e.g. rain parsed by the AI
+        # assistant). The physics overlay still prices the wet delta correctly
+        # for any INTERMEDIATE stint that IS passed in.
+        compounds = ["INTERMEDIATE"] if wet else ["SOFT", "MEDIUM", "HARD"]
         step = max(3, total_laps // 15)
         strategies: list[_Strategy] = []
         for c1 in compounds:

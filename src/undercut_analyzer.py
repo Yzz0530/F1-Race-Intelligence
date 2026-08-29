@@ -24,7 +24,6 @@ from race_physics import (
     tyre_degradation,
     track_temp_effect,
     undercut_benefit,
-    overcut_benefit,
 )
 
 
@@ -35,48 +34,6 @@ class UndercutAnalyzer:
         self.base_lap_time = base_lap_time
         # Typical window: undercut works when gap at pit exit < delta to
         # the car ahead (approx 1.5-2.5s). We model this gap dynamically.
-
-    def analyze_undercut(
-        self,
-        pit_lap: int,
-        total_laps: int,
-        tyre_age_before_pit: int,
-        fresh_compound: str = "SOFT",
-        old_compound: str = "MEDIUM",
-        gap_to_ahead: float = 1.5,  # seconds gap to car ahead at T0
-        opponent_pit_lap: int | None = None,
-        track_temp: float = 35.0,
-    ) -> dict[str, Any]:
-        """
-        Full undercut analysis.
-
-        Returns dict with crossover lap, net time gain, and whether the
-        undercut succeeds given the initial gap.
-        """
-        uc = undercut_benefit(
-            pit_lap, total_laps, tyre_age_before_pit,
-            fresh_compound, pit_loss=PIT_LOSS_DEFAULT,
-        )
-        # Effective gap after pit (gap + pit loss - fresh tyre gain)
-        effective_gap = gap_to_ahead + PIT_LOSS_DEFAULT - uc["gain_from_fresh"]
-
-        success = effective_gap < 0  # undercut wins if we come out ahead
-        track_positions_gained = 0
-        if success:
-            # Rough: each ~2s = 1 position
-            track_positions_gained = min(int(abs(effective_gap) / 2.0) + 1, 5)
-
-        return {
-            "pit_lap": pit_lap,
-            "gap_to_ahead_before_pit": round(gap_to_ahead, 2),
-            "pit_loss": PIT_LOSS_DEFAULT,
-            "fresh_tyre_gain_first_5_laps": uc["gain_from_fresh"],
-            "crossover_lap": uc["crossover_lap"],
-            "net_benefit": uc["net_benefit"],
-            "effective_gap_after_stop": round(effective_gap, 2),
-            "undercut_succeeds": success,
-            "track_positions_gained_est": track_positions_gained,
-        }
 
     def compare_strategies(
         self,
@@ -153,6 +110,28 @@ class UndercutAnalyzer:
             "final_delta": round(t_a - t_b, 2),
         }
 
+    def _race_time_one_stop(
+        self,
+        total_laps: int,
+        compound: str,
+        pit_lap: int,
+        tyre_age_at_start: int = 0,
+    ) -> float:
+        """Total race time for a single-stop race on `compound`/`compound`,
+        pitting on `pit_lap` (second stint same compound, fresh tyres)."""
+        t = 0.0
+        age = tyre_age_at_start + 1
+        for lap in range(1, total_laps + 1):
+            t += self.base_lap_time + compound_delta(compound)
+            t += tyre_degradation(compound, age)
+            t += fuel_effect(lap, total_laps)
+            if lap == pit_lap:
+                t += PIT_LOSS_DEFAULT
+                age = 1  # fresh tyres
+            else:
+                age += 1
+        return t
+
     def find_optimal_pit_window(
         self,
         total_laps: int,
@@ -162,22 +141,39 @@ class UndercutAnalyzer:
         track_temp: float = 35.0,
     ) -> list[dict[str, Any]]:
         """
-        For a given compound and target stint length, find the optimal
-        lap to pit (minimizing time loss from tyre deg + fuel).
+        Find pit laps that minimize total race time for a one-stop race on
+        `compound`, where the first stint is `stint_length` laps.
+
+        The search evaluates every legal pit lap that yields the requested
+        first-stint length and a legal second stint, simulates the full race
+        with the real tyre-deg + fuel + pit-loss model, and returns the
+        lowest-time options. Earlier vs later pitting is a genuine trade-off:
+        pitting early keeps the second stint fresh but wears the first stint
+        longer; pitting late does the opposite. The model captures both.
+
+        ``stint_length`` is treated as the *target* first-stint length; the
+        optimal pit lap is `stint_length` itself unless there is a secondary
+        advantage (there usually isn't for a single compound), in which case
+        nearby pit laps are ranked by their true total time.
         """
         results: list[dict[str, Any]] = []
-        for pit_lap in range(5, total_laps - stint_length + 1, 1):
-            # Degradation before pit
-            before_deg = tyre_degradation(compound, tyre_age_at_start + pit_lap)
-            # Degradation after pit
-            after_deg = tyre_degradation(compound, stint_length)
-            # Fuel effect
-            fuel = sum(fuel_effect(lap, total_laps) for lap in range(1, total_laps + 1))
-            total_penalty = before_deg * pit_lap + after_deg * stint_length + PIT_LOSS_DEFAULT + fuel * 0.01
+        lo = max(5, stint_length - total_laps // 4)
+        hi = min(total_laps - 5, stint_length + total_laps // 4)
+        for pit_lap in range(lo, hi + 1):
+            if pit_lap < 5 or (total_laps - pit_lap) < 5:
+                continue
+            total_time = self._race_time_one_stop(
+                total_laps, compound, pit_lap, tyre_age_at_start
+            )
             results.append({
                 "pit_lap": pit_lap,
-                "total_penalty_seconds": round(total_penalty, 2),
+                "total_time_seconds": round(total_time, 2),
             })
 
-        results.sort(key=lambda r: r["total_penalty_seconds"])
+        # Best (minimum) total time = 0 penalty baseline for display.
+        best = min((r["total_time_seconds"] for r in results), default=None)
+        if best is not None:
+            for r in results:
+                r["penalty_vs_best_seconds"] = round(r["total_time_seconds"] - best, 2)
+        results.sort(key=lambda r: r["total_time_seconds"])
         return results[:10]

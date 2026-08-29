@@ -165,22 +165,9 @@ def tyre_temp_penalty(compound: str, track_temp: float) -> float:
     return 0.08  # mild penalty for cold track
 
 
-def compound_degradation_rate(compound: str, track_temp: float) -> float:
-    """Temperature-adjusted degradation rate."""
-    base_rate = TYRE_DEG_RATE.get(compound, 0.045)
-    # Hotter track = faster deg
-    temp_factor = 1.0 + max(0, (track_temp - 35) * 0.02)
-    return base_rate * temp_factor
-
-
 def sc_delta() -> float:
     """Time delta under Safety Car (~3s slower per lap)."""
     return 3.0
-
-
-def vsc_delta() -> float:
-    """Time delta under VSC (~1.5s slower per lap)."""
-    return 1.5
 
 
 def undercut_benefit(
@@ -231,38 +218,6 @@ def undercut_benefit(
     }
 
 
-def overcut_benefit(
-    staying_out_lap: int, total_laps: int,
-    tyre_compound: str, tyre_age: int,
-    opponent_compound: str, opponent_pit_lap: int,
-    track_temp: float = 35.0,
-) -> dict[str, float]:
-    """
-    Calculate benefit of overcut (staying out while opponent pits).
-
-    Returns dict with net benefit (positive = overcut wins).
-    """
-    laps_after_pit = total_laps - opponent_pit_lap
-    if laps_after_pit <= 0:
-        return {"net_benefit": 0}
-
-    # Opponent loses pit time + has fresh tyres
-    # We stay out on older tyres but gain track position
-
-    # Simplified: compare tyre delta over the window
-    our_degradation = tyre_degradation(tyre_compound, tyre_age)
-    their_fresh_deg = 0  # minimal on fresh tyres
-
-    # Over 3 laps after pit, what's the delta?
-    total_gain = 0
-    for lap in range(1, 4):
-        our_lap = our_degradation + compound_delta(tyre_compound) + tyre_degradation(tyre_compound, tyre_age + lap)
-        their_lap = their_fresh_deg + compound_delta(opponent_compound) + tyre_degradation(opponent_compound, lap)
-        total_gain += their_lap - our_lap
-
-    return {"net_benefit": round(total_gain - PIT_LOSS_DEFAULT, 3)}
-
-
 def race_time_estimate(
     total_laps: int,
     base_lap_time: float,
@@ -299,26 +254,55 @@ def simulate_sc_scenario(
     pit_loss: float = PIT_LOSS_DEFAULT,
     compound: str = "MEDIUM",
     track_temp: float = 35.0,
+    baseline_pit_lap: int | None = None,
 ) -> dict[str, Any]:
     """
-    Simulate a Safety Car scenario.
+    Simulate a Safety Car scenario and compare it like-for-like against a
+    normal green-flag race.
 
-    If sc_free_pit=True, pitting under SC reduces pit loss to ~12s.
-    Returns dict with time gained/lost vs green-flag baseline.
+    BOTH the baseline and the SC run make the same number of pit stops. By
+    default the baseline pits on the same lap the SC run pits, so the only
+    differences that remain are (a) the reduced pit loss under SC and (b) the
+    slow SC laps. This makes ``time_saved`` an honest answer to "should I pit
+    under the Safety Car?" instead of comparing a no-stop race to a pitting one.
+
+    - sc_free_pit=True  -> SC run pits under the SC (reduced 12s loss).
+    - sc_free_pit=False -> SC run makes the same green-flag pit as the baseline
+                           (so the SC slow laps are pure cost: a net loss).
     """
-    # Baseline: normal race
-    base_times, base_total = race_time_estimate(total_laps, base_lap_time, compound, track_temp)
+    # The green-flag pit lap used by the baseline (and by the SC run when it
+    # does NOT pit under the SC). Default: mirror the SC pit lap when pitting
+    # under SC, otherwise a sensible mid-race window.
+    if baseline_pit_lap is None:
+        baseline_pit_lap = sc_lap if sc_free_pit else max(5, total_laps // 2)
 
-    # SC scenario — track tyre age across the whole race, resetting after under-SC pit
+    # ── Baseline: one green-flag pit (real races stop ~once) ──────────
+    base_times: list[float] = []
+    tyre_age = 1
+    for lap in range(1, total_laps + 1):
+        lt = base_lap_time
+        lt += compound_delta(compound)
+        lt += tyre_degradation(compound, tyre_age)
+        lt += fuel_effect(lap, total_laps)
+        lt += track_temp_effect(track_temp)
+        if lap == baseline_pit_lap:
+            lt += pit_loss  # green-flag stop
+            tyre_age = 1     # fresh tyres
+        else:
+            tyre_age += 1
+        base_times.append(lt)
+    base_total = sum(base_times)
+
+    # ── SC scenario: track tyre age across the whole race ─────────────
     sc_times: list[float] = []
-    sc_pit_lap = sc_lap if sc_free_pit else None
     tyre_age = 1  # lap 1 of a fresh stint
+    sc_green_pit_done = False
 
     for lap in range(1, total_laps + 1):
         if sc_lap <= lap < sc_lap + sc_duration:
             # Under SC — slow laps regardless of tyre state
             if sc_free_pit and lap == sc_lap:
-                # Pit under SC: pay reduced pit loss, then restart on fresh tyres
+                # Pit under SC: pay reduced pit loss, restart on fresh tyres
                 lt = base_lap_time + sc_slow + PIT_LOSS_SAFETY_CAR
                 tyre_age = 1  # fresh tyres from the pit stop
             else:
@@ -333,7 +317,13 @@ def simulate_sc_scenario(
             lt += fuel_effect(lap, total_laps)
             lt += track_temp_effect(track_temp)
             sc_times.append(lt)
-            tyre_age += 1
+            if (not sc_free_pit) and lap == baseline_pit_lap and not sc_green_pit_done:
+                # SC run makes the same green-flag stop as the baseline
+                sc_times[-1] += pit_loss
+                tyre_age = 1
+                sc_green_pit_done = True
+            else:
+                tyre_age += 1
 
     sc_total = sum(sc_times)
     time_saved = base_total - sc_total
@@ -345,5 +335,7 @@ def simulate_sc_scenario(
         "sc_total": round(sc_total, 1),
         "time_saved": round(time_saved, 1),
         "free_pit": sc_free_pit,
+        "baseline_pit_lap": baseline_pit_lap,
+        "baseline_pit_loss": pit_loss,
         "sc_pit_loss": PIT_LOSS_SAFETY_CAR if sc_free_pit else 0,
     }

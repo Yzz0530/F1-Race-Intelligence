@@ -345,11 +345,34 @@ class StrategyAssistant:
     def ask(self, question: str, driver: str = "VER", track: str = "British Grand Prix",
             total_laps: int = 52, current_lap: int = 15,
             current_compound: str = "MEDIUM", tyre_age: int = 10,
-            track_temp: float = 35.0) -> str:
+            track_temp: float = 35.0, rainfall: float = 0.0) -> str:
         """
         Route a natural language question to the right handler.
+
+        ``rainfall`` is a 0..1+ intensity (0.3 damp, 0.7 wet, 1.0+ heavy). When
+        the caller already knows the weather it can be passed in directly; the
+        router also tries to read it out of phrases like "rain", "wet",
+        "intermediate" so the natural-language path can reach the wet-tyre
+        advice in which_tyre_next().
         """
         q = question.lower()
+
+        # ── Parse rainfall from the question when not (reliably) supplied ──
+        parsed_rain = rainfall
+        if parsed_rain <= 0.0:
+            if any(k in q for k in ("heavy rain", "heavy wet", "torrential")):
+                parsed_rain = 1.0
+            elif any(k in q for k in ("intermediate", "inters", "wet tyre", "wet tire", "rain")):
+                parsed_rain = 0.7
+            elif "damp" in q:
+                parsed_rain = 0.3
+        # Also catch "rainfall 0.X" style explicit numbers in the question.
+        rain_num = re.findall(r"rainfall?\s*[:=]?\s*([0-9]*\.?[0-9]+)", q)
+        if rain_num:
+            try:
+                parsed_rain = float(rain_num[0])
+            except ValueError:
+                pass
 
         if "pit" in q and ("should" in q or "now" in q or "when" in q):
             return self.should_i_pit(driver, track, current_lap, total_laps,
@@ -372,9 +395,16 @@ class StrategyAssistant:
                 extra = int(nums[0])
             return self.time_loss_if_stay_out(driver, current_lap, total_laps,
                                               current_compound, tyre_age, extra)
+        # Wet / intermediate tyre routing: if rainfall was parsed (or asked
+        # about rain directly) the next-tyre question must respect it.
+        if parsed_rain > 0.3:
+            return self.which_tyre_next(driver, track, total_laps,
+                                        total_laps - current_lap, track_temp,
+                                        rainfall=parsed_rain)
         if "tyre" in q or "tire" in q or "next" in q or "compound" in q:
             return self.which_tyre_next(driver, track, total_laps,
-                                        total_laps - current_lap, track_temp)
+                                        total_laps - current_lap, track_temp,
+                                        rainfall=parsed_rain)
         if "stint" in q or "long run" in q:
             stint_len = 20
             nums = re.findall(r"(\d+) (?:lap|stint)", q)

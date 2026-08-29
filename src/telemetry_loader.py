@@ -299,6 +299,37 @@ def get_session_weather(session: Any) -> list[dict[str, Any]]:
         return []
 
 
+def load_cached_telemetry(year: int, race: str, driver_code: str) -> "pd.DataFrame | None":
+    """Load a committed per-metre car-telemetry trace built by scripts/build_telemetry_cache.py.
+
+    Returns a distance-indexed DataFrame (Speed, Throttle, Brake, nGear, DRS, RPM)
+    with Distance restored as the index, matching the shape `plot_telemetry_comparison`
+    expects. Returns None if no committed parquet exists for that (year, race, driver).
+
+    This is the offline path for the CAR TELEMETRY tab: full telemetry traces render
+    from committed data on Streamlit Cloud without any live fastf1 call.
+    """
+    telem_dir = os.path.join(_BASE, "data", "telemetry")
+    if not os.path.isdir(telem_dir):
+        return None
+    safe_race = str(race).replace(" ", "_").replace("/", "_")
+    safe_driver = str(driver_code).replace(" ", "_")
+    path = os.path.join(telem_dir, f"{year}__{safe_race}__{safe_driver}.parquet")
+    if not os.path.exists(path):
+        return None
+    try:
+        df = pd.read_parquet(path)
+    except Exception:
+        return None
+    if df is None or df.empty:
+        return None
+    # Restore Distance as the index (the cache stores it as a column for round-trip safety).
+    if "Distance" in df.columns:
+        df = df.set_index("Distance")
+    df.index.name = "Distance"
+    return df
+
+
 def get_offline_sector_data(year: int, race: str, driver_codes: list[str]) -> dict[str, Any] | None:
     """Offline sector-speed summary sourced from the committed master CSV.
 

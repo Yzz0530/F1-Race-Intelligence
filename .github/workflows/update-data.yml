@@ -44,7 +44,11 @@ jobs:
       - name: Build / top-up race results CSV (instant RESULTS tab)
         run: |
           python scripts/build_race_results_csv.py
-          
+
+      - name: Build committed car-telemetry cache (offline CAR TELEMETRY fallback)
+        run: |
+          python scripts/build_telemetry_cache.py --years ${{ inputs.year || '2026' }}
+
       - name: Train XGBoost model (quality-gated — only overwrites if better than committed baseline)
         run: |
           python src/train.py
@@ -53,6 +57,6 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add data/ data/race_results.csv models/TRAINING_MANIFEST.json models/*.pkl
+          git add data/ data/race_results.csv data/telemetry/ models/TRAINING_MANIFEST.json models/*.pkl
           git diff --staged --quiet || git commit -m "chore: auto-update F1 data [skip ci]"
           git push
