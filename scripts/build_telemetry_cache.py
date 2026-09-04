@@ -180,16 +180,17 @@ def build_cache(
                     print(f"  [{year}] {race}: session load failed — {e}")
                 continue
 
-            laps = session.laps
-            if laps is None or laps.empty:
+            # Check if session loaded properly (2026 races may have no Ergast data)
+            try:
+                laps = session.laps
+            except Exception as e:
                 if verbose:
-                    print(f"  [{year}] {race}: no laps")
+                    print(f"  [{year}] {race}: no lap data available (Ergast lag) — {e}")
                 continue
 
-            # Check if any driver has lap data (2026 races may have empty laps due to Ergast lag)
-            if len(laps) == 0:
+            if laps is None or laps.empty or len(laps) == 0:
                 if verbose:
-                    print(f"  [{year}] {race}: no lap data available (Ergast lag)")
+                    print(f"  [{year}] {race}: no laps")
                 continue
 
             drivers = sorted(laps["DriverNumber"].unique())
