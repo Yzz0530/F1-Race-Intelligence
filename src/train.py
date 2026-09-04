@@ -73,11 +73,13 @@ misc: list[str] = ["Position_normalized", "IsPersonalBest_int", "FreshTire_int",
 sectors: list[str] = ["S1_speed", "S2_speed", "S3_speed", "AvgSpeed"]
 weather: list[str] = ["AirTemp", "TrackTemp", "Humidity", "Rainfall", "WindSpeed"]
 circuit: list[str] = ["CircuitLength_km", "CircuitCorners", "CircuitAvgSpeed", "CircuitType_enc"]
+# P2: New non-linear tyre features
+tyre_features: list[str] = ["TyreLifePhase", "StopNumber", "TrackEvoProxy"]
 FEATURES: list[str] = [
     "Driver_enc", "Compound_enc", "CompoundFamily_enc", "CompoundOrdinal", "IsWet",
     "TyreLife", "TyreLife_sq", "Stint", "StintPhase", "TrackStatus",
     "LapInRace", "LapInRace_sq", "FuelWeightEffect", "DriverForm",
-] + misc + sectors + weather + circuit
+] + misc + sectors + weather + circuit + tyre_features
 N_FEATURES: int = len(FEATURES)
 
 # Weather (and any other) columns are supplementary — they may be absent when the

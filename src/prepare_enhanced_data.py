@@ -139,6 +139,34 @@ def _engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     # Start lap
     df["IsStartLap"] = (df["TyreLife"] <= 1).astype(int) if "TyreLife" in df.columns else 1
 
+    # ── P2: Non-linear tyre features ──────────────────────────────────
+    # Tyre life phase: 0=early linear, 1=mid transition, 2=cliff region
+    # Based on calibrated cliff points: SOFT~18, MEDIUM~30, HARD~40
+    def _tyre_life_phase(row):
+        tl = row.get("TyreLife", 0)
+        comp = row.get("Compound", "")
+        if comp == "SOFT":
+            if tl <= 12: return 0.0
+            elif tl <= 18: return 1.0
+            else: return 2.0
+        elif comp == "MEDIUM":
+            if tl <= 20: return 0.0
+            elif tl <= 30: return 1.0
+            else: return 2.0
+        elif comp == "HARD":
+            if tl <= 28: return 0.0
+            elif tl <= 40: return 1.0
+            else: return 2.0
+        else:
+            return 0.0
+    
+    df["TyreLifePhase"] = df.apply(_tyre_life_phase, axis=1)
+
+    # Stop number (which pit stop this stint represents)
+    # Stint 1 = stop 0 (start), stint 2 = stop 1, stint 3 = stop 2, etc.
+    if "Stint" in df.columns:
+        df["StopNumber"] = (df["Stint"] - 1).clip(lower=0)
+
     return df
 
 
@@ -265,6 +293,11 @@ def _clean_and_featurize(df: pd.DataFrame) -> pd.DataFrame:
     )
     df["DriverForm"] = df["DriverForm"].fillna(df["LapTime"])
 
+    # ── P2: Track evolution proxy (rubbering in) ──────────────────────
+    # Session-wide lap counter — laps completed in this race by all drivers.
+    # More laps = more rubber laid down = faster track.
+    df["TrackEvoProxy"] = df.groupby("Race").cumcount() / 1000.0  # scale to ~0-0.1
+
     return df
 
 
@@ -278,6 +311,8 @@ def _select_columns(df: pd.DataFrame) -> pd.DataFrame:
         "IsPersonalBest_int", "FreshTire_int", "IsStartLap",
         "AirTemp", "TrackTemp", "Humidity", "Rainfall", "WindSpeed",
         "CircuitLength_km", "CircuitCorners", "CircuitAvgSpeed", "CircuitType_enc",
+        # P2: New non-linear tyre features
+        "TyreLifePhase", "StopNumber", "TrackEvoProxy",
     ]
     keep = [c for c in keep_cols if c in df.columns]
     df = df[keep]

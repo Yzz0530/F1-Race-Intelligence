@@ -138,6 +138,28 @@ class F1StrategyOptimizer:
                     stint_phase = 1.0
                 else:
                     stint_phase = 2.0
+
+                # P2: New non-linear tyre features
+                # TyreLifePhase: compound-specific cliff points
+                if compound == "SOFT":
+                    if lis <= 12: tyre_life_phase = 0.0
+                    elif lis <= 18: tyre_life_phase = 1.0
+                    else: tyre_life_phase = 2.0
+                elif compound == "MEDIUM":
+                    if lis <= 20: tyre_life_phase = 0.0
+                    elif lis <= 30: tyre_life_phase = 1.0
+                    else: tyre_life_phase = 2.0
+                elif compound == "HARD":
+                    if lis <= 28: tyre_life_phase = 0.0
+                    elif lis <= 40: tyre_life_phase = 1.0
+                    else: tyre_life_phase = 2.0
+                else:
+                    tyre_life_phase = 0.0
+                # StopNumber: stint 1 = stop 0 (start), stint 2 = stop 1, etc.
+                stop_number = float(stint_idx)
+                # TrackEvoProxy: session-wide lap counter scaled
+                track_evo_proxy = float(lap_number) / 1000.0
+
                 M[idx, self._cid["Compound_enc"]] = compound_enc
                 M[idx, self._cid["CompoundOrdinal"]] = compound_ord
                 M[idx, self._cid["TyreLife"]] = tyre_life
@@ -149,6 +171,12 @@ class F1StrategyOptimizer:
                 M[idx, self._cid["FuelWeightEffect"]] = lap_number * -0.03
                 M[idx, self._cid["FreshTire_int"]] = 1.0 if lis == 1 else 0.0
                 M[idx, self._cid["IsStartLap"]] = 1.0 if lis <= 1 else 0.0
+                if "TyreLifePhase" in self._cid:
+                    M[idx, self._cid["TyreLifePhase"]] = tyre_life_phase
+                if "StopNumber" in self._cid:
+                    M[idx, self._cid["StopNumber"]] = stop_number
+                if "TrackEvoProxy" in self._cid:
+                    M[idx, self._cid["TrackEvoProxy"]] = track_evo_proxy
                 idx += 1
         return M
 
