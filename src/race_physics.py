@@ -104,6 +104,19 @@ MAX_STINT: dict[str, int] = {
     "INTERMEDIATE": 30,
 }
 
+# Piecewise degradation: (cliff_start_lap, cliff_rate_multiplier) per compound
+# Before cliff: base TYRE_DEG_RATE * lap
+# After cliff: base TYRE_DEG_RATE * cliff_rate_multiplier * (lap - cliff_start)
+TYRE_DEG_PIECEWISE: dict[str, tuple[int, float]] = {
+    "SOFT": (18, 3.5),    # cliff ~lap 18, 3.5x degradation
+    "MEDIUM": (30, 2.5),  # cliff ~lap 30, 2.5x degradation
+    "HARD": (40, 2.0),    # cliff ~lap 40, 2.0x degradation
+    "INTERMEDIATE": (25, 2.0),
+}
+
+# SC tyre cooling: laps under SC count as 0.3x wear (tyres cool, don't wear)
+SC_TYRE_WEAR_MULTIPLIER: float = 0.3
+
 
 # ── Physics helpers ───────────────────────────────────────────────
 
@@ -159,7 +172,19 @@ def compound_delta(compound: str) -> float:
 
 
 def tyre_degradation(compound: str, lap_in_stint: int) -> float:
-    """Tyre deg time delta for a given lap."""
+    """Tyre deg time delta for a given lap — piecewise (linear → cliff)."""
+    rate = TYRE_DEG_RATE.get(compound, 0.045)
+    cliff_start, cliff_mult = TYRE_DEG_PIECEWISE.get(compound, (999, 1.0))
+    if lap_in_stint <= cliff_start:
+        return rate * (lap_in_stint - 1)
+    # After cliff: base + cliff_mult * rate * laps_into_cliff
+    base = rate * (cliff_start - 1)
+    cliff_laps = lap_in_stint - cliff_start
+    return base + cliff_mult * rate * cliff_laps
+
+
+def tyre_degradation_linear(compound: str, lap_in_stint: int) -> float:
+    """Legacy linear degradation (kept for backwards compatibility)."""
     rate = TYRE_DEG_RATE.get(compound, 0.045)
     return rate * (lap_in_stint - 1)
 
@@ -310,7 +335,7 @@ def simulate_sc_scenario(
 
     for lap in range(1, total_laps + 1):
         if sc_lap <= lap < sc_lap + sc_duration:
-            # Under SC — slow laps regardless of tyre state
+            # Under SC — slow laps, tyres cool (reduced wear)
             if sc_free_pit and lap == sc_lap:
                 # Pit under SC: pay reduced pit loss, restart on fresh tyres
                 lt = base_lap_time + sc_slow + PIT_LOSS_SAFETY_CAR
@@ -318,12 +343,12 @@ def simulate_sc_scenario(
             else:
                 lt = base_lap_time + sc_slow
             sc_times.append(lt)
-            tyre_age += 1  # SC laps still age tyres (slowly)
+            tyre_age += SC_TYRE_WEAR_MULTIPLIER  # SC laps age tyres less (cooling)
         else:
             # Green-flag lap — apply full tyre model with current tyre_age
             lt = base_lap_time
             lt += compound_delta(compound)
-            lt += tyre_degradation(compound, tyre_age)
+            lt += tyre_degradation(compound, int(tyre_age))
             lt += fuel_effect(lap, total_laps)
             lt += track_temp_effect(track_temp)
             sc_times.append(lt)

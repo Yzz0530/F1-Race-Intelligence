@@ -26,6 +26,8 @@ from race_physics import (
     PIT_LOSS_DEFAULT,
     OUT_LAP_PENALTY,
     MAX_STINT,
+    tyre_degradation as race_tyre_degradation,
+    SC_TYRE_WEAR_MULTIPLIER,
 )
 
 warnings = __import__("warnings")
@@ -153,7 +155,7 @@ class F1StrategyOptimizer:
     def _physics_delta(self, driver: str, compound: str, lap_in_stint: int,
                        lap_number: int, total_laps: int, sc_active: bool = False) -> float:
         base_speed = self.COMPOUND_SPEED[compound]
-        tire_deg = self.TIRE_DEG_RATE[compound] * (lap_in_stint - 1)
+        tire_deg = race_tyre_degradation(compound, lap_in_stint)
         fuel = _race_fuel_effect(lap_number, total_laps)  # properly models 110kg start, 2.5kg/lap burn
         out_lap = self.OUT_LAP_PENALTY if lap_in_stint == 1 else 0.0
         driver_off = self.driver_offsets.get(driver, 0.0)
@@ -195,13 +197,18 @@ class F1StrategyOptimizer:
             sc_next_lap = rng.randint(5, max(15, total_laps // 3))
 
         flat_idx = 0
+        sc_active = False
+        sc_laps_remaining = 0
         for stint_idx, (compound, stint_laps) in enumerate(strategy):
             times: list[float] = []
             for lis in range(1, stint_laps + 1):
-                sc_active = (sc_next_lap == lap_number)
-                if sc_active:
+                # Handle SC activation
+                if sc_next_lap == lap_number and not sc_active:
+                    sc_active = True
                     sc_deployed = True
+                    sc_laps_remaining = rng.randint(3, 6)  # SC duration 3-5 laps
                     sc_next_lap = None
+
                 noise = rng.normal(0, 0.08)
                 if ml_preds is not None:
                     ml_lt = float(ml_preds[flat_idx])
@@ -216,6 +223,12 @@ class F1StrategyOptimizer:
                 total_time += lt
                 lap_number += 1
                 flat_idx += 1
+
+                # Decrement SC counter, apply tyre cooling multiplier
+                if sc_active:
+                    sc_laps_remaining -= 1
+                    if sc_laps_remaining <= 0:
+                        sc_active = False
             stint_details.append({
                 "compound": compound,
                 "laps": stint_laps,
