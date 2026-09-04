@@ -34,8 +34,18 @@ COMPOUND_MAP: dict[str, str] = {"SOFT": "DRY", "MEDIUM": "DRY", "HARD": "DRY", "
 
 
 class F1StrategyOptimizer:
-    COMPOUND_SPEED: dict[str, float] = {"SOFT": -0.35, "MEDIUM": 0.0, "HARD": 0.20, "INTERMEDIATE": 1.20}
-    TIRE_DEG_RATE: dict[str, float] = {"SOFT": 0.08, "MEDIUM": 0.045, "HARD": 0.025, "INTERMEDIATE": 0.05}
+    COMPOUND_SPEED: dict[str, float] = {
+        "SOFT": -2.8,
+        "MEDIUM": 0.0,
+        "HARD": 1.5,
+        "INTERMEDIATE": 1.20,
+    }
+    TIRE_DEG_RATE: dict[str, float] = {
+        "SOFT": 0.080,
+        "MEDIUM": 0.045,
+        "HARD": 0.025,
+        "INTERMEDIATE": 0.050,
+    }
     OUT_LAP_PENALTY: float = 0.5
     PIT_LOSS: float = 22.0
     ML_WEIGHT: float = 0.4  # blend between ML and physics; 1.0 = pure ML
