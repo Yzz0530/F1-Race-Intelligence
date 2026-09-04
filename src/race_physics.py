@@ -96,6 +96,14 @@ TYRE_TEMP_OPT: dict[str, tuple[float, float]] = {
     "HARD": (75, 100),
 }
 
+# Maximum stint length per compound (laps) — realistic F1 limits
+MAX_STINT: dict[str, int] = {
+    "SOFT": 20,
+    "MEDIUM": 30,
+    "HARD": 40,
+    "INTERMEDIATE": 30,
+}
+
 
 # ── Physics helpers ───────────────────────────────────────────────
 

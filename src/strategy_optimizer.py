@@ -20,6 +20,13 @@ import joblib
 import numpy as np
 import pandas as pd
 from race_physics import fuel_effect as _race_fuel_effect
+from race_physics import (
+    COMPOUND_DELTA,
+    TYRE_DEG_RATE,
+    PIT_LOSS_DEFAULT,
+    OUT_LAP_PENALTY,
+    MAX_STINT,
+)
 
 warnings = __import__("warnings")
 warnings.filterwarnings("ignore")
@@ -34,20 +41,11 @@ COMPOUND_MAP: dict[str, str] = {"SOFT": "DRY", "MEDIUM": "DRY", "HARD": "DRY", "
 
 
 class F1StrategyOptimizer:
-    COMPOUND_SPEED: dict[str, float] = {
-        "SOFT": -2.8,
-        "MEDIUM": 0.0,
-        "HARD": 1.5,
-        "INTERMEDIATE": 1.20,
-    }
-    TIRE_DEG_RATE: dict[str, float] = {
-        "SOFT": 0.080,
-        "MEDIUM": 0.045,
-        "HARD": 0.025,
-        "INTERMEDIATE": 0.050,
-    }
-    OUT_LAP_PENALTY: float = 0.5
-    PIT_LOSS: float = 22.0
+    # Single-source from race_physics.py
+    COMPOUND_SPEED: dict[str, float] = COMPOUND_DELTA
+    TIRE_DEG_RATE: dict[str, float] = TYRE_DEG_RATE
+    OUT_LAP_PENALTY: float = OUT_LAP_PENALTY
+    PIT_LOSS: float = PIT_LOSS_DEFAULT
     ML_WEIGHT: float = 0.4  # blend between ML and physics; 1.0 = pure ML
 
     def __init__(self) -> None:
@@ -297,10 +295,17 @@ class F1StrategyOptimizer:
         compounds = ["INTERMEDIATE"] if wet else ["SOFT", "MEDIUM", "HARD"]
         step = max(3, total_laps // 15)
         strategies: list[_Strategy] = []
+
+        def _valid_stints(strat: _Strategy) -> bool:
+            """Check if all stint lengths respect MAX_STINT per compound."""
+            return all(sl <= MAX_STINT.get(c, 50) for c, sl in strat)
+
         for c1 in compounds:
             for c2 in compounds:
                 for s1 in range(step, total_laps - step, step):
-                    strategies.append([(c1, s1), (c2, total_laps - s1)])
+                    strat = [(c1, s1), (c2, total_laps - s1)]
+                    if _valid_stints(strat):
+                        strategies.append(strat)
         for c1 in compounds[:2]:
             for c2 in compounds[:2]:
                 for c3 in compounds:
@@ -308,7 +313,9 @@ class F1StrategyOptimizer:
                         for s2 in range(s1 + step, total_laps - step, 2 * step):
                             s3 = total_laps - s1 - s2
                             if s3 >= step:
-                                strategies.append([(c1, s1), (c2, s2), (c3, s3)])
+                                strat = [(c1, s1), (c2, s2), (c3, s3)]
+                                if _valid_stints(strat):
+                                    strategies.append(strat)
 
         strat_matrices: dict[str, np.ndarray | None] = {}
         for strat in strategies:
