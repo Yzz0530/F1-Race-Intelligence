@@ -18,29 +18,33 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
-          
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          
-      - name: Download race data
+
+      - name: Download race data (only if raw CSVs missing)
         run: |
-          python src/download_all_races.py --year ${{ inputs.year || '2026' }}
-          
+          if [ ! -f data/all_races_${{ inputs.year || '2026' }}.csv ]; then
+            python src/download_all_races.py --year ${{ inputs.year || '2026' }}
+          else
+            echo "Raw CSV already exists, skipping download"
+          fi
+
       - name: Prepare features
         run: |
           python src/prepare_enhanced_data.py
-          
+
       - name: Build / top-up race results CSV (instant RESULTS tab)
         run: |
           python scripts/build_race_results_csv.py

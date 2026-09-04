@@ -129,21 +129,25 @@ def main() -> None:
 
     new_rows: list[dict] = []
     for year in YEARS:
-        schedule = fastf1.get_event_schedule(year)
-        schedule = schedule[schedule["EventFormat"] != "testing"]
-        races = sorted(schedule["EventName"].tolist())
-        for race in races:
-            for stype in SESSION_TYPES:
-                key = (year, race, stype)
-                if key in done_keys:
-                    continue  # already in CSV — skip (resumable)
-                try:
-                    rows = _session_results(year, race, stype)
-                    if rows:
+            schedule = fastf1.get_event_schedule(year)
+            schedule = schedule[schedule["EventFormat"] != "testing"]
+            races = sorted(schedule["EventName"].tolist())
+            for race in races:
+                for stype in SESSION_TYPES:
+                    key = (year, race, stype)
+                    if key in done_keys:
+                        continue  # already in CSV — skip (resumable)
+                    try:
+                        rows = _session_results(year, race, stype)
+                        # Skip if no rows returned (2026 data not on Ergast yet)
+                        if not rows:
+                            if verbose:
+                                print(f"  [SKIP] {year} {race} {stype}: no data available (Ergast lag)")
+                            continue
                         new_rows.extend(rows)
                         print(f"  [OK] {year} {race} {stype} ({len(rows)} drivers)")
-                except Exception as e:
-                    print(f"  [SKIP] {year} {race} {stype}: {e}")
+                    except Exception as e:
+                        print(f"  [SKIP] {year} {race} {stype}: {e}")
 
     if new_rows:
         df_new = pd.DataFrame(new_rows, columns=COLUMNS)

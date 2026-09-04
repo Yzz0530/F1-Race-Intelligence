@@ -186,6 +186,12 @@ def build_cache(
                     print(f"  [{year}] {race}: no laps")
                 continue
 
+            # Check if any driver has lap data (2026 races may have empty laps due to Ergast lag)
+            if len(laps) == 0:
+                if verbose:
+                    print(f"  [{year}] {race}: no lap data available (Ergast lag)")
+                continue
+
             drivers = sorted(laps["DriverNumber"].unique())
             # Map fastf1 DriverNumber -> 3-letter code via session's driver list if possible.
             # fastf1 laps store Driver as the 3-letter code already on most sessions.
