@@ -79,6 +79,13 @@ class F1StrategyOptimizer:
         self._encoded_compounds: dict[str, int] = {
             c: int(self.le_compound.transform([c])[0]) for c in self.le_compound.classes_
         }
+        # Fallback for unknown drivers: assign incremental IDs beyond encoder range
+        self._next_driver_enc: int = max(self._encoded_drivers.values()) + 1 if self._encoded_drivers else 0
+        self._unknown_driver_cache: dict[str, int] = {}
+        # Fallback for unknown compounds: map WET → closest known compound
+        self._compound_fallback: dict[str, str] = {
+            "WET": "INTERMEDIATE",
+        }
         self._family_enc: int = int(self.le_family.transform(["DRY"])[0])
         self._n_features: int = len(self.feature_list)
         self._cid: dict[str, int] = {n: i for i, n in enumerate(self.feature_list)}
@@ -88,11 +95,17 @@ class F1StrategyOptimizer:
         M = np.zeros((n_laps, self._n_features), dtype=np.float32)
         fb = self.fallback.get(race_name, {})
         circuit = self.circuit_info.get(race_name, {})
-        driver_enc = self._encoded_drivers.get(driver, 0)
+        driver_enc = self._encoded_drivers.get(driver)
+        if driver_enc is None:
+            # Assign incremental ID for unknown drivers
+            if driver not in self._unknown_driver_cache:
+                self._unknown_driver_cache[driver] = self._next_driver_enc
+                self._next_driver_enc += 1
+            driver_enc = self._unknown_driver_cache[driver]
         # Tyre family / wet flag are race-wide constants in the feature matrix.
-        # Any INTERMEDIATE stint makes the whole run a wet race.
+        # Any INTERMEDIATE or WET stint makes the whole run a wet race.
         compounds_in_strategy = [c for c, _ in strategy]
-        is_wet = any(c == "INTERMEDIATE" for c in compounds_in_strategy)
+        is_wet = any(c in ("INTERMEDIATE", "WET") for c in compounds_in_strategy)
         fam_encoded = int(self.le_family.transform(["WET"])[0]) if is_wet else self._family_enc
         form_key = (race_name, driver)
         driver_form = self.driver_form_proxy.get(form_key, self.driver_offsets.get(driver, 0.0))
@@ -125,7 +138,11 @@ class F1StrategyOptimizer:
 
         idx = 0
         for stint_idx, (compound, stint_laps) in enumerate(strategy):
-            compound_enc = self._encoded_compounds.get(compound, 0)
+            compound_enc = self._encoded_compounds.get(compound)
+            if compound_enc is None:
+                # Map unknown compound to fallback (WET → INTERMEDIATE)
+                fallback_compound = self._compound_fallback.get(compound, compound)
+                compound_enc = self._encoded_compounds.get(fallback_compound, 0)
             compound_ord = float(COMPOUND_ORDER.get(compound, 2))
             stint = float(stint_idx + 1)
             for lis in range(1, stint_laps + 1):
@@ -182,10 +199,13 @@ class F1StrategyOptimizer:
 
     def _physics_delta(self, driver: str, compound: str, lap_in_stint: int,
                        lap_number: int, total_laps: int, sc_active: bool = False) -> float:
-        base_speed = self.COMPOUND_SPEED[compound]
-        tire_deg = race_tyre_degradation(compound, lap_in_stint)
+        # Fallback for unknown compound (e.g. WET → use INTERMEDIATE delta)
+        resolved_compound = self._compound_fallback.get(compound, compound)
+        base_speed = self.COMPOUND_SPEED.get(resolved_compound, 0.0)
+        tire_deg = race_tyre_degradation(resolved_compound, lap_in_stint)
         fuel = _race_fuel_effect(lap_number, total_laps)  # properly models 110kg start, 2.5kg/lap burn
         out_lap = self.OUT_LAP_PENALTY if lap_in_stint == 1 else 0.0
+        # Unknown drivers get zero offset (neutral pace)
         driver_off = self.driver_offsets.get(driver, 0.0)
         sc_delta = 3.0 if sc_active else 0.0
         return base_speed + tire_deg + fuel + out_lap + driver_off + sc_delta
@@ -207,8 +227,9 @@ class F1StrategyOptimizer:
         When ml_preds is None, the caller is responsible for providing a feature
         matrix and the fallback physics path is used.
         """
-        if driver not in self.driver_offsets:
-            return None
+        if driver not in self.driver_offsets and driver not in self._unknown_driver_cache:
+            # Allow simulation for unknown drivers with neutral offset
+            pass
         if rng is None:
             rng = np.random.RandomState()
         if pit_loss is None:

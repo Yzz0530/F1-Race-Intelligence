@@ -29,7 +29,7 @@ class TestImprovements(unittest.TestCase):
 
         The optimizer blends the physics fuel overlay at 60% (ML_WEIGHT=0.4).
         Over a 52-lap race the raw physics fuel effect is ~1.8s; MEDIUM
-        degradation (~0.045s/lap) partly offsets it in a single-stint sim, so
+        degradation (~0.011s/lap) partly offsets it in a single-stint sim, so
         we assert on the isolated physics fuel delta, which must be >1.2s.
         """
         # Isolated fuel physics: lap 1 vs lap 52, no tyre degradation, no ML.

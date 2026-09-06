@@ -125,15 +125,20 @@ def main() -> None:
         st.markdown("<hr>", unsafe_allow_html=True)
         try:
             with open(os.path.join(_BASE, "models", "TRAINING_MANIFEST.json")) as _mf:
-                _mae = _mf.read() and json.load(_mf)["metrics"]["val_mae"]
-            _mae_txt = f"{_mae:.2f}s"
+                _mf_content = _mf.read()
+                _manifest = json.loads(_mf_content)
+            _mae_txt = f"{_manifest['metrics']['val_mae']:.2f}s"
+            _feat_count = len(_manifest['features'])
+            _row_count = _manifest['training_data']['rows']
         except Exception:
-            _mae_txt = "0.88s"
+            _mae_txt = "0.87s"
+            _feat_count = 31
+            _row_count = 31703
         st.markdown(
             "<div style='color:var(--text-muted);font-size:0.7rem;line-height:1.7;'>"
             "<span style='color:var(--text-dim);font-size:0.6rem;letter-spacing:0.5px;text-transform:uppercase;'>Technology Stack</span><br>"
             "XGBoost · Monte Carlo · Physics Engine<br>"
-            f"<span style='color:var(--text-dim);font-size:0.6em;'>MAE {_mae_txt} · 31 features · 31,703 laps</span></div>",
+            f"<span style='color:var(--text-dim);font-size:0.6em;'>MAE {_mae_txt} · {_feat_count} features · {_row_count:,} laps</span></div>",
             unsafe_allow_html=True,
         )
         _gh = "https://raw.githubusercontent.com/Yzz0530/F1-Race-Intelligence/master/assets"

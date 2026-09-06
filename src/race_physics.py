@@ -68,24 +68,25 @@ OUT_LAP_PENALTY: float = 0.5       # extra time on out-lap (cold tyres)
 IN_LAP_PENALTY: float = 0.3        # slight lift on in-lap
 
 # Tyre compound deltas (relative to MEDIUM baseline, in seconds, ABSOLUTE lap time space).
-# Calibrated from all_races_master.csv (24 dry races, 30k laps):
-# - SOFT is ~2.8–3.2s faster than MEDIUM early-mid stint
-# - MEDIUM is ~1.2–3.3s faster than HARD early-mid stint (HARD used late on evolved track)
-# - INTERMEDIATE wet tyre: ~8–15s off dry pace, but ML handles wet via IsWet/CompoundFamily
+# Calibrated from all_races_master.csv (52k laps, 24 races, 2024-2026):
+# - SOFT is ~2.9-3.2s faster than MEDIUM early-mid stint
+# - MEDIUM is ~1.2-2.3s faster than HARD early-mid stint (HARD can be faster late on evolved track)
+# - INTERMEDIATE wet tyre: ~8-15s off dry pace, but ML handles wet via IsWet/CompoundFamily
 # The ML target (delta from race mean) does NOT separate compounds — these deltas are the
 # single source of truth for compound strategy in the 60% physics overlay.
 COMPOUND_DELTA: dict[str, float] = {
-    "SOFT": -2.8,
+    "SOFT": -3.0,
     "MEDIUM": 0.0,
-    "HARD": 1.5,
+    "HARD": 1.8,
     "INTERMEDIATE": 1.20,
 }
 
 # Tyre degradation rate per lap (seconds per lap of wear)
+# Calibrated from all_races_master.csv (52k laps, 24 races, 2024-2026)
 TYRE_DEG_RATE: dict[str, float] = {
-    "SOFT": 0.080,
-    "MEDIUM": 0.045,
-    "HARD": 0.025,
+    "SOFT": 0.036,
+    "MEDIUM": 0.011,
+    "HARD": -0.030,
     "INTERMEDIATE": 0.050,
 }
 

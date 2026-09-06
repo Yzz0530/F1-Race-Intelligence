@@ -74,8 +74,11 @@ class TestSimulation(unittest.TestCase):
         self.assertIsNotNone(r, "Model should predict for unknown circuits using circuit features")
 
     def test_invalid_driver_returns_none(self) -> None:
+        """Previously, unknown drivers returned None. Now they get simulated with neutral offset."""
+        # Unknown driver should now return a valid simulation result (not None)
         r = self.opt.simulate_strategy(self.race, 52, "XXX", [("SOFT", 52)])
-        self.assertIsNone(r)
+        self.assertIsNotNone(r)
+        self.assertEqual(r["driver"], "XXX")
 
     def test_pit_loss_applied(self) -> None:
         r = self.opt.simulate_strategy(

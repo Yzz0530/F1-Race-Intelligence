@@ -32,6 +32,31 @@ os.makedirs(DATA_DIR, exist_ok=True)
 # ── Race → circuit name map (hard-coded for correctness across years) ────────
 # Updated for 2026 season: Spanish GP moved to Madrid
 RACE_TO_CIRCUIT: dict[tuple[int, str], str] = {
+    # 2024 season
+    (2024, "Bahrain Grand Prix"): "Bahrain International Circuit",
+    (2024, "Saudi Arabian Grand Prix"): "Jeddah Corniche Circuit",
+    (2024, "Australian Grand Prix"): "Albert Park Circuit",
+    (2024, "Japanese Grand Prix"): "Suzuka International Racing Course",
+    (2024, "Chinese Grand Prix"): "Shanghai International Circuit",
+    (2024, "Miami Grand Prix"): "Miami International Autodrome",
+    (2024, "Emilia Romagna Grand Prix"): "Imola",
+    (2024, "Monaco Grand Prix"): "Circuit de Monaco",
+    (2024, "Canadian Grand Prix"): "Circuit Gilles Villeneuve",
+    (2024, "Spanish Grand Prix"): "Circuit de Barcelona-Catalunya",
+    (2024, "Austrian Grand Prix"): "Red Bull Ring",
+    (2024, "British Grand Prix"): "Silverstone Circuit",
+    (2024, "Hungarian Grand Prix"): "Hungaroring",
+    (2024, "Belgian Grand Prix"): "Circuit de Spa-Francorchamps",
+    (2024, "Dutch Grand Prix"): "Circuit Zandvoort",
+    (2024, "Italian Grand Prix"): "Monza",
+    (2024, "Azerbaijan Grand Prix"): "Baku City Circuit",
+    (2024, "Singapore Grand Prix"): "Marina Bay Street Circuit",
+    (2024, "United States Grand Prix"): "Circuit of the Americas",
+    (2024, "Mexico City Grand Prix"): "Autodromo Hermanos Rodriguez",
+    (2024, "São Paulo Grand Prix"): "Interlagos",
+    (2024, "Las Vegas Grand Prix"): "Las Vegas Strip Circuit",
+    (2024, "Qatar Grand Prix"): "Losail International Circuit",
+    (2024, "Abu Dhabi Grand Prix"): "Yas Marina Circuit",
     # 2025 season
     (2025, "Bahrain Grand Prix"): "Bahrain International Circuit",
     (2025, "Saudi Arabian Grand Prix"): "Jeddah Corniche Circuit",
@@ -250,6 +275,10 @@ def _load_weather_for_year(year: int, df: pd.DataFrame) -> pd.DataFrame:
 
 def _clean_and_featurize(df: pd.DataFrame) -> pd.DataFrame:
     """Apply cleaning rules and final feature engineering."""
+    # Convert LapTime from timedelta string to float seconds (if not already numeric)
+    if not pd.api.types.is_numeric_dtype(df["LapTime"]):
+        df["LapTime"] = pd.to_timedelta(df["LapTime"]).dt.total_seconds()
+
     df = df.dropna(subset=["LapTime"])
     df = df[df["LapTime"] > 60]
 
