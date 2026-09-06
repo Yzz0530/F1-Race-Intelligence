@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-09-06T14:12:37.449000",
-  "git_commit": "auto-generated",
+  "generated_at": "2026-09-06T14:26:48.114818",
+  "git_commit": "bfd0e03bfe51445617a6df36522a654b38933171",
   "training_data": {
     "path": "data\\all_races_master.csv",
     "sha256": "6490159539af95d2346d48d41280cbc4aebd194cb8f0f1bebd97fd59716f3a6a",
@@ -10,10 +10,10 @@
   },
   "model": {
     "path": "models\\xgb_master.pkl",
-    "sha256": "32e5a54720793dfa9bf79e6ca3e2b5d00ff4d975d36ae0817bd276902d9bf791",
+    "sha256": "7565ff9db541633ea968d4aa94dd868896e47e2ee5a59c561696fba3befe3706",
     "n_estimators": 200,
-    "learning_rate": 0.011165738109425805,
-    "max_depth": 8
+    "learning_rate": 0.010688473539444493,
+    "max_depth": 9
   },
   "features": [
     "Driver_enc",
@@ -52,9 +52,9 @@
     "TrackEvoProxy"
   ],
   "metrics": {
-    "train_mae": 0.3565,
-    "val_mae": 1.0024,
-    "best_trial_mae": 1.0024
+    "train_mae": 0.3343415856361389,
+    "val_mae": 0.9393139481544495,
+    "best_trial_mae": 0.9393139481544495
   },
   "target": "delta from per-race baseline lap time (s)"
 }
