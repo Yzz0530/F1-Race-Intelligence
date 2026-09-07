@@ -405,7 +405,7 @@ def render_results_tab():
     # Year first, then tracks adapt to selected year
     c1, c2 = st.columns(2)
     with c2:
-        r_year = st.selectbox("Year", [2026, 2025], key="res_year")
+        r_year = st.selectbox("Year", [2026, 2025, 2024], key="res_year")
     tracks_for_year = _get_tracks(r_year)
     with c1:
         r_track = st.selectbox("Track", tracks_for_year, key="res_track")

@@ -351,7 +351,7 @@ def _render_standings_table(standings: pd.DataFrame, is_constructor: bool = Fals
 def render_standings_tab():
     """Render the championship standings tab."""
     # ── Year selector ─────────────────────────────────────────────────────
-    s_year = st.selectbox("Season", [2026, 2025], key="standings_year")
+    s_year = st.selectbox("Season", [2026, 2025, 2024], key="standings_year")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
