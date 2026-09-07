@@ -142,14 +142,18 @@ def main() -> None:
             unsafe_allow_html=True,
         )
         _gh = "https://raw.githubusercontent.com/Yzz0530/F1-Race-Intelligence/master/assets"
-        _songs = [
-            _gh + "/f1_theme.mp3",
-            _gh + "/don_toliver_lose_my_mind.mp3",
-            _gh + "/tate_mcrae_just_keep_watching.mp3",
-            _gh + "/rose_messy.mp3",
-            _gh + "/ed_sheeran_drive.mp3",
-            _gh + "/f1_additional.mp3",
+        _songs_local = [
+            f"assets/{f}" for f in [
+                "f1_theme.mp3",
+                "don_toliver_lose_my_mind.mp3",
+                "tate_mcrae_just_keep_watching.mp3",
+                "rose_messy.mp3",
+                "ed_sheeran_drive.mp3",
+                "f1_additional.mp3",
+            ]
         ]
+        # Use local assets (more reliable than GitHub raw URLs)
+        _songs = _songs_local
         st.markdown(
             '<div style="position:absolute;opacity:0;width:0;height:0;overflow:hidden">'
             '<audio id="f1audio"><source src="' + _songs[0] + '" type="audio/mpeg"></audio>'
