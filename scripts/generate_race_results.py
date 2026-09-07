@@ -22,6 +22,16 @@ def main():
     print(f"\nMaster file: {len(master)} rows")
     print(f"Years in master: {sorted(master['Year'].unique())}")
     
+    # Load 2024 data for team info (has Team column)
+    team_info = {}
+    try:
+        df_2024 = pd.read_csv('data/all_races_2024.csv')
+        if 'Team' in df_2024.columns and 'Driver' in df_2024.columns:
+            team_info = df_2024[['Driver', 'Team']].drop_duplicates().set_index('Driver')['Team'].to_dict()
+            print(f"Loaded team info for {len(team_info)} drivers from 2024 data")
+    except Exception as e:
+        print(f"Warning: Could not load 2024 team info: {e}")
+    
     # For each year not in existing, extract race results
     new_rows = []
     
@@ -54,7 +64,9 @@ def main():
             for _, row in last_laps.iterrows():
                 driver = row["Driver"]
                 position = row["Position_normalized"]  # Normalized position (0-1)
-                team = row.get("Team", "Unknown") if "Team" in race_laps.columns else "Unknown"
+                
+                # Get team from 2024 data or use default
+                team = team_info.get(driver, "Unknown")
                 
                 # Get best lap time
                 driver_laps = race_laps[race_laps["Driver"] == driver]
