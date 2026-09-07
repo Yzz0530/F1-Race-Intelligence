@@ -36,16 +36,21 @@ def main():
     new_rows = []
     
     for year in sorted(master["Year"].unique()):
-        # Skip if year exists AND has team info (valid data)
+        # Skip if year exists AND has valid data (team info AND points)
         if year in years_present:
-            # Check if this year has valid team info
+            # Check if this year has valid data
             year_data = existing[existing["Year"] == year]
             unknown_teams = year_data["TeamName"].value_counts().get("Unknown", 0)
-            if unknown_teams == 0 or unknown_teams < len(year_data) * 0.5:
+            
+            # Check if points are present
+            missing_points = year_data["Points"].isna().sum()
+            total_rows = len(year_data)
+            
+            if unknown_teams == 0 and missing_points < total_rows * 0.1:
                 print(f"\nYear {year} already exists with valid data, skipping...")
                 continue
             else:
-                print(f"\nYear {year} has {unknown_teams} Unknown teams, regenerating...")
+                print(f"\nYear {year} needs regeneration (Unknown: {unknown_teams}, Missing points: {missing_points}/{total_rows})")
         else:
             print(f"\nProcessing year {year}...")
         year_laps = master[master["Year"] == year]
@@ -84,15 +89,27 @@ def main():
                 
                 # Convert normalized position to actual position
                 # Position_normalized is 0-1, where 0 is first place
-                # We need to reverse it
-                actual_position = int((1 - position) * 20) + 1  # Approximate
+                # Get actual position by finding rank among all drivers for this race
+                race_positions = race_laps_filtered.groupby("Driver")["Position_normalized"].last().reset_index()
+                race_positions = race_positions.sort_values("Position_normalized")
+                race_positions["ActualPosition"] = range(1, len(race_positions) + 1)
+                pos_map = dict(zip(race_positions["Driver"], race_positions["ActualPosition"]))
+                actual_position = pos_map.get(driver, 21)
+                
+                # Ensure position is reasonable
                 if actual_position < 1:
                     actual_position = 1
-                elif actual_position > 20:
-                    actual_position = 20
+                elif actual_position > 25:
+                    actual_position = 22  # Beyond points
                 
-                # Status: DNF if very few laps or position is extreme
-                if total_laps < 5 or actual_position > 20:
+                # Calculate F1 points based on position
+                points_table = {1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2, 10: 1}
+                points = points_table.get(actual_position, 0)
+                
+                # Status: DNF if very few laps
+                if total_laps < 5:
+                    status = "DNF"
+                elif actual_position > 20:
                     status = "DNF"
                 else:
                     status = "Finished"
@@ -108,7 +125,7 @@ def main():
                     "GridPosition": "",  # Not available
                     "Status": status,
                     "Time": "",  # Not available
-                    "Points": "",  # Will calculate later
+                    "Points": points,  # F1 points based on position
                     "Q1": "",
                     "Q2": "",
                     "Q3": "",
