@@ -18,7 +18,7 @@ _SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 if _SRC_DIR not in sys.path:
     sys.path.insert(0, _SRC_DIR)
 
-from tabs._shared import load_optimizer, _BASE  # noqa: E402
+from tabs._shared import load_optimizer, _BASE, DRIVERS_LIST  # noqa: E402
 from tabs import strategy, driver_battle, stint_telemetry, track_analysis  # noqa: E402
 from tabs import sc_simulator, pit_analysis, car_telemetry, ai_assistant  # noqa: E402
 from results import render_results_tab  # noqa: E402
@@ -219,7 +219,7 @@ def main() -> None:
     elif active_tab == "AI ASSISTANT":
         ai_assistant.render_ai_assistant()
     elif active_tab == "RACE TIMELINE":
-        render_race_timeline(opt, tracks, opt.driver_offsets.keys(), _team_name, COMPOUND_COLORS, plt, pd, st)
+        render_race_timeline(opt, tracks, DRIVERS_LIST, _team_name, COMPOUND_COLORS, plt, pd, st)
     elif active_tab == "RESULTS":
         render_results_tab()
     elif active_tab == "STANDINGS":
