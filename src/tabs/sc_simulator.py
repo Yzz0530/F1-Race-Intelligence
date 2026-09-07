@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import matplotlib.pyplot as plt
+import streamlit as st
 
-from ._shared import F1_RED, COMPOUND_COLORS, DRIVERS_LIST, _team_color, _team_name, simulate_sc_scenario, style_ax, load_optimizer
+from ._shared import F1_RED, COMPOUND_COLORS, DRIVERS_LIST, _team_color, _team_name, simulate_sc_scenario, style_ax, style_legend, load_optimizer
 
 
 def render_sc_simulator() -> None:

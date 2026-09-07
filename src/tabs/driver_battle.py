@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import matplotlib.pyplot as plt
 import numpy as np
+import streamlit as st
 
 from ._shared import (
     F1_RED, COMPOUND_COLORS, DRIVERS_LIST, _team_color, _team_name,

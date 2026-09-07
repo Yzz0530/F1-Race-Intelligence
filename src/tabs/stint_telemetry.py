@@ -5,7 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from ._shared import F1_RED, COMPOUND_COLORS, DRIVERS_LIST, _team_color, _team_name, load_optimizer, run_detailed, fuel_effect
+import streamlit as st
+
+from ._shared import F1_RED, COMPOUND_COLORS, DRIVERS_LIST, _team_color, _team_name, style_ax, style_legend, load_optimizer, run_detailed, fuel_effect
 
 
 def render_stint_telemetry() -> None:

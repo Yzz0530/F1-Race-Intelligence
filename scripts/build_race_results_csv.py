@@ -141,8 +141,7 @@ def main() -> None:
                         rows = _session_results(year, race, stype)
                         # Skip if no rows returned (2026 data not on Ergast yet)
                         if not rows:
-                            if verbose:
-                                print(f"  [SKIP] {year} {race} {stype}: no data available (Ergast lag)")
+                            print(f"  [SKIP] {year} {race} {stype}: no data available (Ergast lag)")
                             continue
                         new_rows.extend(rows)
                         print(f"  [OK] {year} {race} {stype} ({len(rows)} drivers)")

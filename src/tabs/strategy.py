@@ -3,15 +3,17 @@ from __future__ import annotations
 
 import time
 
+import streamlit as st
+
 from ._shared import (
     F1_RED, COMPOUND_COLORS, DRIVERS_LIST, _team_color, _team_name,
-    _compound_badge, style_ax, load_optimizer, run_opt, run_detailed,
+    _compound_badge, style_ax, style_legend, load_optimizer, run_opt, run_detailed,
 )
 
 
 def render_strategy() -> None:
     opt = load_optimizer()
-    c1, c2, c3, c4 = st.columns(4)  # type: ignore[name-defined]
+    c1, c2, c3, c4 = st.columns(4)
     with c1:
         sd1 = st.selectbox("Driver", DRIVERS_LIST, index=DRIVERS_LIST.index("VER"),
                            format_func=lambda d: f"{d}  ·  {_team_name(d)}", key="s_driver")

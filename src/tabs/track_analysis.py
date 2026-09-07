@@ -6,8 +6,9 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import streamlit as st
 
-from ._shared import F1_RED, COMPOUND_COLORS, DRIVERS_LIST, _team_color, _team_name, traffic_effect, style_ax, load_optimizer
+from ._shared import F1_RED, COMPOUND_COLORS, DRIVERS_LIST, _team_color, _team_name, traffic_effect, style_ax, style_legend, load_optimizer
 
 
 def render_track_analysis() -> None:

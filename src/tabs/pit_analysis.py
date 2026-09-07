@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import streamlit as st
 
 from ._shared import F1_RED, COMPOUND_COLORS, DRIVERS_LIST, PIT_LOSS_DEFAULT, _team_color, _team_name, undercut_benefit, style_ax, load_undercut, load_optimizer
 
