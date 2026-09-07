@@ -36,11 +36,18 @@ def main():
     new_rows = []
     
     for year in sorted(master["Year"].unique()):
+        # Skip if year exists AND has team info (valid data)
         if year in years_present:
-            print(f"\nYear {year} already exists, skipping...")
-            continue
-        
-        print(f"\nProcessing year {year}...")
+            # Check if this year has valid team info
+            year_data = existing[existing["Year"] == year]
+            unknown_teams = year_data["TeamName"].value_counts().get("Unknown", 0)
+            if unknown_teams == 0 or unknown_teams < len(year_data) * 0.5:
+                print(f"\nYear {year} already exists with valid data, skipping...")
+                continue
+            else:
+                print(f"\nYear {year} has {unknown_teams} Unknown teams, regenerating...")
+        else:
+            print(f"\nProcessing year {year}...")
         year_laps = master[master["Year"] == year]
         
         # Get unique races
